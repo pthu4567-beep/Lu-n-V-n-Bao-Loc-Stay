@@ -41,7 +41,7 @@ const Checkout = () => {
       });
       
       if (res.data.success) {
-        await showAlert('Thành công', 'Đã gửi yêu cầu xác nhận thanh toán. Vui lòng xem hóa đơn biên nhận.', 'success');
+        await showAlert('Thành công', 'Đã gửi yêu cầu xác nhận thanh toán. Đơn hàng sẽ được duyệt trong vòng 15 phút. Vui lòng xem hóa đơn biên nhận.', 'success');
         navigate(`/invoice/${bookingId}`);
       }
     } catch (err) {
@@ -152,6 +152,9 @@ const Checkout = () => {
 
             <button className="btn btn-primary w-full complete-btn" onClick={handleFinish}>
               Tôi đã chuyển khoản
+            </button>
+            <button className="btn btn-outline w-full" style={{ marginTop: '10px', fontWeight: 600, padding: '12px' }} onClick={() => navigate('/')}>
+              Về trang chủ
             </button>
           </div>
         </div>

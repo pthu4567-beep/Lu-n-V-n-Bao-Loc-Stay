@@ -4,6 +4,13 @@ import { User, History, LogOut, Star, CheckCircle, AlertCircle, AlertTriangle, C
 import axios from 'axios';
 import './Profile.css';
 
+const formatLocalDateOnly = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(typeof dateString === 'string' ? dateString.replace('Z', '') : dateString);
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+};
+
 const Profile = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('history');
@@ -19,6 +26,10 @@ const Profile = () => {
   const [earlyCheckoutDialog, setEarlyCheckoutDialog] = useState({ isOpen: false, bookingId: null });
   const [notification, setNotification] = useState({ isOpen: false, message: '', type: 'success' });
 
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({ full_name: '', phone: '' });
+
   // Lấy thông tin user đăng nhập từ sessionStorage
   useEffect(() => {
     const storedUser = sessionStorage.getItem('user');
@@ -26,7 +37,12 @@ const Profile = () => {
       // Nếu chưa đăng nhập, chuyển về trang auth
       navigate('/auth');
     } else {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setEditProfileData({
+        full_name: parsedUser.full_name || '',
+        phone: parsedUser.phone || ''
+      });
     }
   }, [navigate]);
 
@@ -144,6 +160,24 @@ const Profile = () => {
     navigate('/auth');
   };
 
+  const handleSaveProfile = async () => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await axios.put('http://localhost:5000/api/users/profile', editProfileData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setUser(res.data.user);
+        sessionStorage.setItem('user', JSON.stringify(res.data.user));
+        setIsEditingProfile(false);
+        setNotification({ isOpen: true, message: res.data.message, type: 'success' });
+      }
+    } catch (err) {
+      setNotification({ isOpen: true, message: err.response?.data?.error || "Có lỗi xảy ra khi cập nhật hồ sơ", type: 'error' });
+    }
+  };
+
   const getStatusConfig = (status) => {
     switch(status) {
       case 'pending_payment': return { text: 'Chờ thanh toán', class: 'status-pending' };
@@ -160,8 +194,8 @@ const Profile = () => {
 
   if (!user) return <div className="container" style={{padding: '5rem 0', textAlign: 'center'}}>Đang chuyển hướng...</div>;
 
-  const emailInitial = user.email ? user.email.substring(0, 2).toUpperCase() : 'US';
-  const username = user.email ? user.email.split('@')[0] : 'Khách Hàng';
+  const emailInitial = user.full_name ? user.full_name.substring(0, 2).toUpperCase() : (user.email ? user.email.substring(0, 2).toUpperCase() : 'US');
+  const displayUsername = user.full_name || (user.email ? user.email.split('@')[0] : 'Khách Hàng');
 
   return (
     <div className="profile-page container">
@@ -169,7 +203,7 @@ const Profile = () => {
         <aside className="profile-sidebar glass-panel">
           <div className="user-avatar-lg">
             <div className="avatar-circle">{emailInitial}</div>
-            <h2>{username}</h2>
+            <h2>{displayUsername}</h2>
             <p>{user.email}</p>
           </div>
           
@@ -195,19 +229,44 @@ const Profile = () => {
         <main className="profile-content glass-panel">
           {activeTab === 'profile' && (
             <div className="tab-pane">
-              <h2>Hồ sơ cá nhân</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0 }}>Hồ sơ cá nhân</h2>
+                {!isEditingProfile ? (
+                  <button className="btn btn-primary" onClick={() => setIsEditingProfile(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Edit size={16} /> Chỉnh sửa
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-outline" onClick={() => {
+                      setIsEditingProfile(false);
+                      setEditProfileData({ full_name: user.full_name || '', phone: user.phone || '' });
+                    }}>Hủy</button>
+                    <button className="btn btn-primary" onClick={handleSaveProfile} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle size={16} /> Lưu thay đổi
+                    </button>
+                  </div>
+                )}
+              </div>
               <form className="profile-form" onSubmit={(e) => e.preventDefault()}>
                 <div className="form-group">
-                  <label>Họ và Tên (Email)</label>
-                  <input type="text" value={username} readOnly />
+                  <label>Họ và Tên</label>
+                  {isEditingProfile ? (
+                    <input type="text" value={editProfileData.full_name} onChange={e => setEditProfileData({...editProfileData, full_name: e.target.value})} placeholder="Nhập họ và tên" />
+                  ) : (
+                    <input type="text" value={user.full_name || displayUsername} readOnly style={{ backgroundColor: '#f8fafc', color: '#64748b' }} />
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Email</label>
-                  <input type="email" value={user.email} disabled />
+                  <input type="email" value={user.email} disabled title="Email không thể thay đổi" />
                 </div>
                 <div className="form-group">
                   <label>Số điện thoại</label>
-                  <input type="tel" value={user.phone || 'Chưa cập nhật'} readOnly />
+                  {isEditingProfile ? (
+                    <input type="tel" value={editProfileData.phone} onChange={e => setEditProfileData({...editProfileData, phone: e.target.value})} placeholder="Nhập số điện thoại" />
+                  ) : (
+                    <input type="tel" value={user.phone || 'Chưa cập nhật'} readOnly style={{ backgroundColor: '#f8fafc', color: '#64748b' }} />
+                  )}
                 </div>
               </form>
             </div>
@@ -232,7 +291,7 @@ const Profile = () => {
                         <div className="booking-body">
                           <div className="b-info">
                             <h3>{booking.homestay}</h3>
-                            <p>{booking.room} • Ngày đặt: {new Date(booking.date).toLocaleDateString('vi-VN')}</p>
+                            <p>{booking.room} • Ngày đặt: {formatLocalDateOnly(booking.date)}</p>
                           </div>
                           <div className="b-price">
                             <strong>{booking.total.toLocaleString('vi-VN')} ₫</strong>

@@ -29,7 +29,9 @@ exports.getDashboardStats = async (req, res) => {
         let revQuery = `
             SELECT 
                 SUM(CASE WHEN MONTH(b.created_at) = MONTH(GETDATE()) AND YEAR(b.created_at) = YEAR(GETDATE()) THEN b.total_amount ELSE 0 END) as currentRevenue,
-                SUM(CASE WHEN MONTH(b.created_at) = MONTH(DATEADD(month, -1, GETDATE())) AND YEAR(b.created_at) = YEAR(DATEADD(month, -1, GETDATE())) THEN b.total_amount ELSE 0 END) as lastMonthRevenue
+                SUM(CASE WHEN MONTH(b.created_at) = MONTH(DATEADD(month, -1, GETDATE())) AND YEAR(b.created_at) = YEAR(DATEADD(month, -1, GETDATE())) THEN b.total_amount ELSE 0 END) as lastMonthRevenue,
+                SUM(CASE WHEN DATEDIFF(week, b.created_at, GETDATE()) = 0 THEN b.total_amount ELSE 0 END) as weekRevenue,
+                SUM(CASE WHEN YEAR(b.created_at) = YEAR(GETDATE()) THEN b.total_amount ELSE 0 END) as yearRevenue
             FROM bookings b
             JOIN hotels h ON b.hotel_id = h.id
             WHERE b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
@@ -66,6 +68,8 @@ exports.getDashboardStats = async (req, res) => {
 
         const currentRevenue = revRes.recordset[0].currentRevenue || 0;
         const lastMonthRevenue = revRes.recordset[0].lastMonthRevenue || 0;
+        const weekRevenue = revRes.recordset[0].weekRevenue || 0;
+        const yearRevenue = revRes.recordset[0].yearRevenue || 0;
         
         let growthPercent = 0;
         if (lastMonthRevenue === 0) {
@@ -80,7 +84,9 @@ exports.getDashboardStats = async (req, res) => {
                 occupancyRate,
                 successRate,
                 currentRevenue,
-                growthPercent
+                growthPercent,
+                weekRevenue,
+                yearRevenue
             }
         });
     } catch (err) {
@@ -89,14 +95,69 @@ exports.getDashboardStats = async (req, res) => {
     }
 };
 
-// API: Lấy dữ liệu biểu đồ doanh thu 12 tháng
+// API: Lấy dữ liệu biểu đồ doanh thu (tuần hoặc 12 tháng)
 exports.getRevenueChart = async (req, res) => {
     try {
         const pool = await poolPromise;
         const roleId = req.user.roleId;
         const userId = req.user.id;
+        const { type } = req.query; // 'week' hoặc 'year'
 
-        // Câu lệnh SQL lấy tổng doanh thu theo từng tháng trong năm hiện tại
+        if (type === 'week') {
+            let query = `
+                SELECT 
+                    CAST(b.created_at AS DATE) as date,
+                    SUM(b.total_amount) as total
+                FROM bookings b
+            `;
+            if (roleId === 2) {
+                query += ` JOIN hotels h ON b.hotel_id = h.id`;
+            }
+            query += ` 
+                WHERE DATEDIFF(week, b.created_at, GETDATE()) = 0
+                AND b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
+            `;
+            if (roleId === 2) {
+                query += ` AND h.owner_id = @userId`;
+            }
+            query += ` GROUP BY CAST(b.created_at AS DATE)`;
+
+            const request = pool.request();
+            if (roleId === 2) {
+                request.input('userId', sql.Int, userId);
+            }
+
+            const result = await request.query(query);
+            const dbData = result.recordset;
+
+            const chartData = [];
+            const curr = new Date();
+            // Lấy ngày đầu tuần (Thứ 2)
+            const first = curr.getDate() - curr.getDay() + (curr.getDay() === 0 ? -6 : 1);
+            const firstDay = new Date(curr.setDate(first));
+            
+            const daysOfWeek = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+            for (let i = 0; i < 7; i++) {
+                const dayDate = new Date(firstDay);
+                dayDate.setDate(firstDay.getDate() + i);
+                
+                const found = dbData.find(row => {
+                    const rowDate = new Date(row.date);
+                    return rowDate.getFullYear() === dayDate.getFullYear() && 
+                           rowDate.getMonth() === dayDate.getMonth() && 
+                           rowDate.getDate() === dayDate.getDate();
+                });
+
+                chartData.push({
+                    name: daysOfWeek[i],
+                    total: found ? Number(found.total) : 0
+                });
+            }
+
+            return res.json({ success: true, data: chartData });
+        }
+
+        // Mặc định: Biểu đồ năm (12 tháng)
         let query = `
             SELECT 
                 MONTH(b.created_at) as month,
@@ -104,23 +165,19 @@ exports.getRevenueChart = async (req, res) => {
             FROM bookings b
         `;
 
-        // Nếu là Owner (roleId = 2), cần JOIN với bảng hotels để lọc theo owner_id
         if (roleId === 2) {
             query += ` JOIN hotels h ON b.hotel_id = h.id`;
         }
 
-        // Chỉ tính các đơn đã xác nhận/hoàn thành trong năm nay
         query += ` 
             WHERE YEAR(b.created_at) = YEAR(GETDATE())
             AND b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
         `;
 
-        // Nếu là Owner, thêm điều kiện lọc
         if (roleId === 2) {
             query += ` AND h.owner_id = @userId`;
         }
 
-        // Nhóm theo tháng
         query += ` GROUP BY MONTH(b.created_at)`;
 
         const request = pool.request();
@@ -129,9 +186,8 @@ exports.getRevenueChart = async (req, res) => {
         }
 
         const result = await request.query(query);
-        const dbData = result.recordset; // Trả về mảng [{ month: 1, total: 500000 }, ...]
+        const dbData = result.recordset; 
 
-        // Tạo sẵn mảng 12 tháng với tổng doanh thu ban đầu là 0
         const chartData = [];
         for (let i = 1; i <= 12; i++) {
             chartData.push({
@@ -140,9 +196,8 @@ exports.getRevenueChart = async (req, res) => {
             });
         }
 
-        // Đổ dữ liệu từ SQL vào mảng 12 tháng
         dbData.forEach(row => {
-            const monthIndex = row.month - 1; // Vì mảng bắt đầu từ 0
+            const monthIndex = row.month - 1; 
             if (monthIndex >= 0 && monthIndex < 12) {
                 chartData[monthIndex].total = Number(row.total) || 0;
             }

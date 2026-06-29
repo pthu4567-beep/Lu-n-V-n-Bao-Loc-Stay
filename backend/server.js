@@ -316,15 +316,16 @@ app.post('/api/auth/register', async (req, res) => {
 
         // Tạo user mới (mặc định role_id = 3 là Customer)
         const insertReq = pool.request();
-        insertReq.input('roleId', sql.Int, 3);
-        insertReq.input('email', sql.VarChar, email);
+        insertReq.input('roleId', sql.Int, 3); // Mặc định role = 3 (Khách hàng)
+        insertReq.input('email', sql.VarChar, email.trim());
         insertReq.input('pwdHash', sql.VarChar, hashedPassword);
         insertReq.input('phone', sql.VarChar, phone || null);
+        insertReq.input('fullName', sql.NVarChar, null);
 
         const result = await insertReq.query(`
-            INSERT INTO users (role_id, email, password_hash, phone, created_at)
+            INSERT INTO users (role_id, email, password_hash, phone, full_name, created_at)
             OUTPUT INSERTED.id
-            VALUES (@roleId, @email, @pwdHash, @phone, GETDATE())
+            VALUES (@roleId, @email, @pwdHash, @phone, @fullName, GETDATE())
         `);
 
         const userId = result.recordset[0].id;
@@ -340,11 +341,11 @@ app.post('/api/auth/register', async (req, res) => {
         // Tạo token JWT tự động đăng nhập
         const token = jwt.sign({ id: userId, email, roleId: 3 }, JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({
-            success: true,
-            message: 'Đăng ký tài khoản thành công!',
+        res.status(201).json({ 
+            success: true, 
+            message: 'Đăng ký thành công!',
             token,
-            user: { id: userId, email, roleId: 3, phone }
+            user: { id: userId, email, roleId: 3, phone, full_name: null }
         });
     } catch (err) {
         console.error('LỖI ĐĂNG KÝ:', err.message);
@@ -366,7 +367,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         const request = pool.request();
         request.input('email', sql.VarChar, email.trim());
-        const result = await request.query('SELECT id, role_id, email, password_hash, phone FROM users WHERE email = @email');
+        const result = await request.query('SELECT id, role_id, email, password_hash, phone, full_name FROM users WHERE email = @email');
 
         if (result.recordset.length === 0) {
             return res.status(400).json({ error: 'Email hoặc mật khẩu không chính xác!' });
@@ -391,11 +392,46 @@ app.post('/api/auth/login', async (req, res) => {
             success: true,
             message: 'Đăng nhập thành công!',
             token,
-            user: { id: user.id, email: user.email, roleId: user.role_id, phone: user.phone }
+            user: { id: user.id, email: user.email, roleId: user.role_id, phone: user.phone, full_name: user.full_name }
         });
     } catch (err) {
         console.error('LỖI ĐĂNG NHẬP:', err.message);
         res.status(500).json({ error: 'Lỗi server khi đăng nhập: ' + err.message });
+    }
+});
+
+// ==========================================
+// API Lấy danh sách bookings của user hiện tại (Dùng JWT)
+// ==========================================
+app.put('/api/users/profile', verifyToken, async (req, res) => {
+    try {
+        const { full_name, phone } = req.body;
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
+
+        const request = pool.request();
+        request.input('userId', sql.Int, req.user.id);
+        request.input('fullName', sql.NVarChar, full_name || null);
+        request.input('phone', sql.VarChar, phone || null);
+
+        await request.query(`
+            UPDATE users 
+            SET full_name = @fullName, phone = @phone 
+            WHERE id = @userId
+        `);
+
+        // Lấy lại thông tin mới nhất
+        const userRes = await pool.request().input('userId', sql.Int, req.user.id).query('SELECT id, email, role_id, phone, full_name FROM users WHERE id = @userId');
+        const updatedUser = userRes.recordset[0];
+
+        res.json({
+            success: true,
+            message: 'Cập nhật hồ sơ thành công!',
+            user: { id: updatedUser.id, email: updatedUser.email, roleId: updatedUser.role_id, phone: updatedUser.phone, full_name: updatedUser.full_name }
+        });
+    } catch (err) {
+        console.error('LỖI CẬP NHẬT PROFILE:', err.message);
+        res.status(500).json({ error: 'Lỗi server khi cập nhật: ' + err.message });
     }
 });
 
@@ -601,6 +637,11 @@ app.use('/api/admin/orders', verifyToken, isOwner, orderRoutes);
 app.use('/api/admin/system', verifyToken, isOwner, systemRoutes);
 app.use('/api/admin/dashboard', verifyToken, isOwner, dashboardRoutes);
 
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+
+const { startAutoApproveJob } = require('./cron');
+
 // User routes
 app.use('/api/bookings', bookingRoutes);
 
@@ -615,4 +656,5 @@ app.delete('/api/admin/homestays/:id', verifyToken, isOwner, catalogController.d
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
     console.log(`Backend Server with WebSockets is running on port ${PORT}`);
+    startAutoApproveJob(); // Bắt đầu cron job tự động duyệt đơn
 });

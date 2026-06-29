@@ -1,4 +1,5 @@
 const { sql, poolPromise } = require('../db');
+const { sendBookingConfirmation } = require('../utils/sendEmail');
 
 exports.getBookings = async (req, res) => {
     try {
@@ -73,6 +74,41 @@ exports.verifyPayment = async (req, res) => {
             SET payment_status = 'paid', verified_by = @adminId 
             WHERE booking_id = @bookingId
         `);
+
+        // Lấy thông tin chi tiết đơn hàng để gửi email
+        const emailDataReq = pool.request();
+        emailDataReq.input('bId', sql.Int, bookingId);
+        const emailDataRes = await emailDataReq.query(`
+            SELECT 
+                b.id as bookingId,
+                u.email as customerEmail,
+                h.name as homestayName,
+                rt.name as roomTypeName,
+                b.created_at as bookingDate,
+                bd.check_in_datetime as checkInDate,
+                bd.check_out_datetime as checkOutDate,
+                p.payment_method as paymentMethod,
+                b.total_amount as totalAmount
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
+            JOIN hotels h ON b.hotel_id = h.id
+            LEFT JOIN booking_details bd ON b.id = bd.booking_id
+            LEFT JOIN rooms r ON bd.room_id = r.id
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
+            LEFT JOIN payments p ON b.id = p.booking_id
+            WHERE b.id = @bId
+        `);
+
+        if (emailDataRes.recordset.length > 0) {
+            const bData = emailDataRes.recordset[0];
+            // Gọi hàm gửi email bất đồng bộ, bọc trong try...catch
+            try {
+                // Không dùng await để không làm chậm API
+                sendBookingConfirmation(bData, bData.customerEmail);
+            } catch (mailErr) {
+                console.error('Lỗi khi gọi hàm sendBookingConfirmation:', mailErr);
+            }
+        }
 
         res.json({ success: true, message: 'Duyệt thanh toán thành công' });
     } catch (err) {
@@ -388,5 +424,66 @@ exports.checkInBooking = async (req, res) => {
     } catch (err) {
         console.error('Lỗi khi check-in:', err);
         res.status(500).json({ error: 'Lỗi server khi check-in!' });
+    }
+};
+
+exports.deleteBooking = async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const roleId = req.user.roleId;
+        const pool = await poolPromise;
+
+        // Chỉ admin (roleId 1) và owner (roleId 2) mới được xóa
+        if (roleId !== 1 && roleId !== 2) {
+             return res.status(403).json({ success: false, message: 'Bạn không có quyền thực hiện hành động này' });
+        }
+
+        // Kiểm tra xem đơn hàng có tồn tại không và nếu là owner thì có thuộc khách sạn của mình không
+        let checkQuery = `
+            SELECT b.id, bd.room_id 
+            FROM bookings b
+            JOIN hotels h ON b.hotel_id = h.id
+            LEFT JOIN booking_details bd ON b.id = bd.booking_id
+            WHERE b.id = @bookingId
+        `;
+        const checkReq = pool.request();
+        checkReq.input('bookingId', sql.Int, bookingId);
+
+        if (roleId === 2) {
+             checkQuery += ` AND h.owner_id = @ownerId`;
+             checkReq.input('ownerId', sql.Int, req.user.id);
+        }
+
+        const checkRes = await checkReq.query(checkQuery);
+        
+        if (checkRes.recordset.length === 0) {
+             return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền xóa' });
+        }
+
+        const deleteReq = pool.request();
+        deleteReq.input('bookingId', sql.Int, bookingId);
+
+        // Giải phóng phòng nếu cần thiết trước khi xóa đơn
+        const roomsToFree = checkRes.recordset.map(r => r.room_id).filter(id => id != null);
+        if (roomsToFree.length > 0) {
+            for (let rId of roomsToFree) {
+                const roomReq = pool.request();
+                roomReq.input('roomId', sql.Int, rId);
+                await roomReq.query(`UPDATE rooms SET status = 'available' WHERE id = @roomId`);
+            }
+        }
+
+        // Xóa các bảng liên quan trước (ON DELETE CASCADE might not be set up)
+        await deleteReq.query(`
+            DELETE FROM payments WHERE booking_id = @bookingId;
+            DELETE FROM booking_details WHERE booking_id = @bookingId;
+            DELETE FROM reviews WHERE booking_id = @bookingId;
+            DELETE FROM bookings WHERE id = @bookingId;
+        `);
+
+        res.json({ success: true, message: 'Xóa đơn hàng thành công' });
+    } catch (err) {
+        console.error('Lỗi khi xóa đơn hàng:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }
 };

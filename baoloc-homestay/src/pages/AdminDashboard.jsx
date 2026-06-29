@@ -6,7 +6,31 @@ import axios from 'axios';
 import { showAlert, showToast, showConfirm } from '../utils/alert';
 import DashboardStats from '../components/DashboardStats';
 import RevenueChart from '../components/RevenueChart';
+import RecentTransactions from '../components/RecentTransactions';
 import './AdminDashboard.css';
+
+// Helpers để hiển thị giờ chuẩn do CSDL trả về Local Time dưới dạng UTC string
+const formatLocalDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())} ${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}`;
+};
+
+const formatLocalDateOnly = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}`;
+};
+
+const getWeekNumber = (dateString) => {
+  if (!dateString) return 0;
+  const d = new Date(dateString);
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+};
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -27,10 +51,10 @@ const AdminDashboard = () => {
   // Thêm mới States
   const [showHomestayModal, setShowHomestayModal] = useState(false);
   const [newHomestay, setNewHomestay] = useState({ name: '', description: '', facilities_text: '', address: '', status: 'active', images_text: '' });
-  
+
   const [showRoomTypeModal, setShowRoomTypeModal] = useState(false);
   const [newRoomType, setNewRoomType] = useState({ hotel_id: '', name: '', base_price: '', capacity: '', room_amenities_text: '' });
-  
+
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState({ room_type_id: '', room_number: '', status: 'available' });
 
@@ -50,7 +74,9 @@ const AdminDashboard = () => {
   const [filterReview, setFilterReview] = useState('all');
   const [filterContact, setFilterContact] = useState('all');
   const [filterRoom, setFilterRoom] = useState('all');
+  const [revenueFilterYear, setRevenueFilterYear] = useState(new Date().getUTCFullYear().toString());
   const [revenueFilterMonth, setRevenueFilterMonth] = useState('all');
+  const [revenueFilterWeek, setRevenueFilterWeek] = useState('all');
 
   // Search States
   const [searchPayment, setSearchPayment] = useState('');
@@ -227,6 +253,27 @@ const AdminDashboard = () => {
     }
   };
 
+  // Xóa đơn hàng
+  const handleDeleteOrder = async (bookingId) => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+
+    const confirmResult = await showConfirm('Xóa đơn hàng', `BẠN CÓ CHẮC CHẮN XÓA ĐƠN HÀNG #${bookingId}? Việc này sẽ xóa mọi dữ liệu liên quan và không thể hoàn tác!`);
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+      const res = await axios.delete(`http://localhost:5000/api/admin/orders/bookings/${bookingId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        showToast("Xóa đơn hàng thành công!", 'success');
+        setPayments(payments.filter(p => (p.bookingId || p.id) !== bookingId));
+      }
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Lỗi khi xóa đơn hàng', 'error');
+    }
+  };
+
   // Trả lời tin nhắn
   const handleReplyContact = async (contactId) => {
     const token = sessionStorage.getItem('token');
@@ -251,7 +298,7 @@ const AdminDashboard = () => {
     const token = sessionStorage.getItem('token');
     const newRole = parseInt(prompt("Nhập Role ID mới (1: Admin, 2: Owner, 3: Customer):", currentRoleId));
     if (!newRole || ![1, 2, 3].includes(newRole)) return;
-    
+
     try {
       const res = await axios.put(`http://localhost:5000/api/admin/system/users/${id}/role`, { role_id: newRole }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -269,7 +316,7 @@ const AdminDashboard = () => {
     const token = sessionStorage.getItem('token');
     const confirmResult = await showConfirm('Xác nhận', `Bạn có chắc muốn ${isBlocked ? 'mở khóa' : 'khóa'} người dùng này?`);
     if (!confirmResult.isConfirmed) return;
-    
+
     try {
       const res = await axios.put(`http://localhost:5000/api/admin/system/users/${id}/block`, { is_blocked: !isBlocked }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -287,7 +334,7 @@ const AdminDashboard = () => {
     const token = sessionStorage.getItem('token');
     const confirmResult = await showConfirm('Cảnh báo', "BẠN CÓ CHẮC CHẮN XÓA TÀI KHOẢN NÀY? Không thể hoàn tác!");
     if (!confirmResult.isConfirmed) return;
-    
+
     try {
       const res = await axios.delete(`http://localhost:5000/api/admin/system/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -597,8 +644,8 @@ const AdminDashboard = () => {
         </nav>
 
         <div className="sidebar-footer">
-          <button 
-            className="nav-btn logout-btn" 
+          <button
+            className="nav-btn logout-btn"
             onClick={() => {
               sessionStorage.removeItem('user');
               sessionStorage.removeItem('token');
@@ -628,6 +675,7 @@ const AdminDashboard = () => {
             <div className="tab-pane">
               <DashboardStats />
               <RevenueChart />
+              <RecentTransactions />
             </div>
           )}
 
@@ -636,11 +684,23 @@ const AdminDashboard = () => {
               <div className="dashboard-card">
                 <div className="dashboard-header-flex">
                   <h2 className="dashboard-title">Chi tiết Nguồn thu</h2>
-                  <div className="dashboard-filters">
+                  <div className="dashboard-filters" style={{ display: 'flex', gap: '10px' }}>
+                    <select className="filter-select" value={revenueFilterYear} onChange={e => setRevenueFilterYear(e.target.value)}>
+                      <option value="all">Tất cả các năm</option>
+                      {[2024, 2025, 2026].map(y => (
+                        <option key={y} value={y}>Năm {y}</option>
+                      ))}
+                    </select>
                     <select className="filter-select" value={revenueFilterMonth} onChange={e => setRevenueFilterMonth(e.target.value)}>
                       <option value="all">Tất cả các tháng</option>
                       {[...Array(12)].map((_, i) => (
-                        <option key={i+1} value={i+1}>Tháng {i+1}</option>
+                        <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>
+                      ))}
+                    </select>
+                    <select className="filter-select" value={revenueFilterWeek} onChange={e => setRevenueFilterWeek(e.target.value)}>
+                      <option value="all">Tất cả các tuần</option>
+                      {[...Array(53)].map((_, i) => (
+                        <option key={i + 1} value={i + 1}>Tuần {i + 1}</option>
                       ))}
                     </select>
                   </div>
@@ -653,13 +713,22 @@ const AdminDashboard = () => {
                       const validRevenue = payments.filter(p => {
                         const st = p.status || p.payment_status || 'pending';
                         if (!['paid', 'confirmed', 'checked_in', 'checked_out', 'completed'].includes(st)) return false;
+                        if (!p.created_at) return false;
+
+                        const pDate = new Date(p.created_at);
+
+                        if (revenueFilterYear !== 'all') {
+                          if (pDate.getUTCFullYear().toString() !== revenueFilterYear.toString()) return false;
+                        }
                         if (revenueFilterMonth !== 'all') {
-                          const pMonth = p.created_at ? new Date(p.created_at).getMonth() + 1 : -1;
-                          if (pMonth.toString() !== revenueFilterMonth.toString()) return false;
+                          if ((pDate.getUTCMonth() + 1).toString() !== revenueFilterMonth.toString()) return false;
+                        }
+                        if (revenueFilterWeek !== 'all') {
+                          if (getWeekNumber(pDate).toString() !== revenueFilterWeek.toString()) return false;
                         }
                         return true;
                       });
-                      
+
                       const totalRevenue = validRevenue.reduce((sum, p) => sum + Number(p.amount || p.total_amount || 0), 0);
 
                       return (
@@ -672,6 +741,7 @@ const AdminDashboard = () => {
                               <th>Số tiền (VNĐ)</th>
                               <th>Trạng thái</th>
                               <th>Ngày tạo</th>
+                              <th style={{ textAlign: 'center' }}>Hành động</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -690,17 +760,27 @@ const AdminDashboard = () => {
                                       {(st === 'paid' || st === 'confirmed') ? 'Đã thanh toán' : st}
                                     </span>
                                   </td>
-                                  <td>{p.created_at ? new Date(p.created_at).toLocaleDateString('vi-VN') : ''}</td>
+                                  <td>{p.created_at ? formatLocalDateOnly(p.created_at) : ''}</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <button
+                                      className="btn btn-sm"
+                                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
+                                      onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
+                                      onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </td>
                                 </tr>
                               );
                             })}
                             {validRevenue.length === 0 && (
-                              <tr><td colSpan="6" style={{textAlign: 'center', padding: '2rem'}}>Chưa có dữ liệu doanh thu</td></tr>
+                              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Chưa có dữ liệu doanh thu</td></tr>
                             )}
                             {validRevenue.length > 0 && (
                               <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
                                 <td colSpan="3" style={{ textAlign: 'right', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>TỔNG CỘNG:</td>
-                                <td colSpan="3" style={{ color: '#10b981', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>
+                                <td colSpan="4" style={{ color: '#10b981', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>
                                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalRevenue)}
                                 </td>
                               </tr>
@@ -762,7 +842,7 @@ const AdminDashboard = () => {
                           const payStatus = pay.status || pay.payment_status || 'pending';
                           let badgeClass = 'status-pending';
                           let badgeText = 'Chờ duyệt';
-                          
+
                           if (payStatus === 'paid' || payStatus === 'confirmed') {
                             badgeClass = 'status-confirmed';
                             badgeText = 'Thành công';
@@ -783,7 +863,7 @@ const AdminDashboard = () => {
                           const bId = pay.bookingId || pay.id;
                           const amount = pay.amount || pay.total_amount || 0;
                           const refundAmount = pay.refund_amount || 0;
-                          
+
                           return (
                             <tr key={pay.id}>
                               <td><strong>#{bId}</strong></td>
@@ -853,15 +933,25 @@ const AdminDashboard = () => {
                                     )}
                                   </div>
 
-                                  <div>
-                                    <button 
-                                      className="btn btn-sm action-btn" 
-                                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, borderRadius: '8px', padding: '6px 12px', transition: 'all 0.2s', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#475569' }} 
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                    <button
+                                      className="btn btn-sm action-btn"
+                                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, borderRadius: '8px', padding: '6px 12px', transition: 'all 0.2s', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#475569' }}
                                       onClick={() => setSelectedOrder(pay)}
                                       onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
                                       onMouseOut={e => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
                                     >
                                       <Eye size={14} /> Chi tiết
+                                    </button>
+                                    <button
+                                      className="btn btn-sm action-btn"
+                                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, borderRadius: '8px', padding: '6px 12px', transition: 'all 0.2s', border: '1px solid #fecaca', backgroundColor: 'white', color: '#dc2626' }}
+                                      onClick={() => handleDeleteOrder(bId)}
+                                      onMouseOver={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                                      onMouseOut={e => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#fecaca'; }}
+                                      title="Xóa đơn"
+                                    >
+                                      <Trash2 size={14} /> Xóa
                                     </button>
                                   </div>
                                 </div>
@@ -922,7 +1012,7 @@ const AdminDashboard = () => {
                             <td>#{u.id}</td>
                             <td><strong>{u.email}</strong></td>
                             <td>
-                              <span className="status-badge" style={{backgroundColor: u.role_id === 1 ? '#e11d48' : (u.role_id === 2 ? '#2563eb' : '#4b5563'), color: 'white'}}>
+                              <span className="status-badge" style={{ backgroundColor: u.role_id === 1 ? '#e11d48' : (u.role_id === 2 ? '#2563eb' : '#4b5563'), color: 'white' }}>
                                 {u.role_id === 1 ? 'Admin' : (u.role_id === 2 ? 'Owner' : 'Customer')}
                               </span>
                             </td>
@@ -933,10 +1023,10 @@ const AdminDashboard = () => {
                             </td>
                             <td>
                               <button className="btn btn-outline btn-sm action-btn" onClick={() => handleUpdateRole(u.id, u.role_id)}>Đổi Quyền</button>
-                              <button className={`btn btn-sm action-btn ${u.is_blocked ? 'btn-primary' : 'btn-outline'}`} style={{marginLeft: '4px'}} onClick={() => handleBlockUser(u.id, u.is_blocked)}>
+                              <button className={`btn btn-sm action-btn ${u.is_blocked ? 'btn-primary' : 'btn-outline'}`} style={{ marginLeft: '4px' }} onClick={() => handleBlockUser(u.id, u.is_blocked)}>
                                 {u.is_blocked ? 'Mở khóa' : 'Khóa'}
                               </button>
-                              <button className="btn btn-danger btn-sm action-btn" style={{marginLeft: '4px'}} onClick={() => handleDeleteUser(u.id)}>Xóa</button>
+                              <button className="btn btn-danger btn-sm action-btn" style={{ marginLeft: '4px' }} onClick={() => handleDeleteUser(u.id)}>Xóa</button>
                             </td>
                           </tr>
                         ))}
@@ -1015,21 +1105,21 @@ const AdminDashboard = () => {
                               )}
                             </td>
                             <td>
-                              <span style={{ 
+                              <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600,
                                 backgroundColor: r.status === 'approved' ? '#dcfce7' : (r.status === 'hidden' ? '#fee2e2' : '#fef3c7'),
                                 color: r.status === 'approved' ? '#16a34a' : (r.status === 'hidden' ? '#dc2626' : '#d97706')
                               }}>
-                                {r.status === 'approved' ? <CheckCircle2 size={14} /> : (r.status === 'hidden' ? <XCircle size={14} /> : <div style={{width:'6px',height:'6px',borderRadius:'50%',background:'currentColor'}}/>)}
+                                {r.status === 'approved' ? <CheckCircle2 size={14} /> : (r.status === 'hidden' ? <XCircle size={14} /> : <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />)}
                                 {r.status === 'approved' ? 'Đã duyệt' : (r.status === 'hidden' ? 'Đã ẩn' : 'Chờ duyệt')}
                               </span>
                             </td>
                             <td>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '200px' }}>
                                 {r.status !== 'approved' && (
-                                  <button 
-                                    className="btn btn-sm" 
-                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '6px', fontWeight: 600, transition: 'all 0.2s' }} 
+                                  <button
+                                    className="btn btn-sm"
+                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '6px', fontWeight: 600, transition: 'all 0.2s' }}
                                     onMouseOver={e => e.currentTarget.style.background = '#d1fae5'} onMouseOut={e => e.currentTarget.style.background = '#ecfdf5'}
                                     onClick={() => handleUpdateReviewStatus(r.id, 'approved')} title="Duyệt đánh giá"
                                   >
@@ -1037,9 +1127,9 @@ const AdminDashboard = () => {
                                   </button>
                                 )}
                                 {r.status !== 'hidden' && (
-                                  <button 
-                                    className="btn btn-sm" 
-                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '6px', fontWeight: 600, transition: 'all 0.2s' }} 
+                                  <button
+                                    className="btn btn-sm"
+                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '6px', fontWeight: 600, transition: 'all 0.2s' }}
                                     onMouseOver={e => e.currentTarget.style.background = '#fee2e2'} onMouseOut={e => e.currentTarget.style.background = '#fef2f2'}
                                     onClick={() => handleUpdateReviewStatus(r.id, 'hidden')} title="Ẩn đánh giá"
                                   >
@@ -1047,18 +1137,18 @@ const AdminDashboard = () => {
                                   </button>
                                 )}
                                 {!r.reply_comment && (
-                                  <button 
-                                    className="btn btn-sm" 
-                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', fontWeight: 600, transition: 'all 0.2s' }} 
+                                  <button
+                                    className="btn btn-sm"
+                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', fontWeight: 600, transition: 'all 0.2s' }}
                                     onMouseOver={e => e.currentTarget.style.background = '#dbeafe'} onMouseOut={e => e.currentTarget.style.background = '#eff6ff'}
                                     onClick={() => { setReplyingReviewId(r.id); setReplyText(''); }} title="Trả lời khách hàng"
                                   >
                                     <MessageCircle size={14} /> Trả lời
                                   </button>
                                 )}
-                                <button 
-                                  className="btn btn-sm" 
-                                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }} 
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
                                   onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
                                   onClick={() => handleDeleteReview(r.id)} title="Xóa vĩnh viễn"
                                 >
@@ -1118,24 +1208,24 @@ const AdminDashboard = () => {
                           </div>
                           <div className="contact-body">
                             <p>"{contact.loi_nhan}"</p>
-                            <span className="msg-date"><Calendar size={12} /> {new Date(contact.created_at).toLocaleString('vi-VN')}</span>
+                            <span className="msg-date"><Calendar size={12} /> {formatLocalDate(contact.created_at)}</span>
                           </div>
-                          <div className="contact-footer" style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                          <div className="contact-footer" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             {contact.status !== 'replied' && (
                               <button
                                 className="btn btn-outline btn-sm action-btn"
                                 onClick={() => handleReplyContact(contact.id)}
                               >
-                                <CheckCircle size={14} style={{display:'inline', verticalAlign:'middle', marginRight:'4px'}} />
+                                <CheckCircle size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
                                 Đánh dấu hoàn tất
                               </button>
                             )}
-                            <a href={`mailto:${contact.email}`} className="btn btn-primary btn-sm action-btn" style={{textDecoration:'none'}}>
-                              <Mail size={14} style={{display:'inline', verticalAlign:'middle', marginRight:'4px'}} /> Gửi Email
+                            <a href={`mailto:${contact.email}`} className="btn btn-primary btn-sm action-btn" style={{ textDecoration: 'none' }}>
+                              <Mail size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Gửi Email
                             </a>
                             {contact.status === 'replied' && (
-                              <span className="text-muted" style={{marginLeft: 'auto'}}>
-                                <CheckCircle size={14} color="var(--status-confirmed)" style={{display:'inline', verticalAlign:'middle', marginRight:'4px'}} /> Đã xử lý xong
+                              <span className="text-muted" style={{ marginLeft: 'auto' }}>
+                                <CheckCircle size={14} color="var(--status-confirmed)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Đã xử lý xong
                               </span>
                             )}
                           </div>
@@ -1223,18 +1313,19 @@ const AdminDashboard = () => {
                         }).map(rt => {
                           const price = rt.base_price || rt.price || 0;
                           return (
-                          <tr key={rt.id}>
-                            <td>#{rt.id}</td>
-                            <td>{rt.hotel_name}</td>
-                            <td><strong>{rt.name}</strong></td>
-                            <td><span className="price-tag">{price.toLocaleString('vi-VN')} ₫</span></td>
-                            <td>{rt.capacity} người</td>
-                            <td>
-                              <button className="btn btn-outline btn-sm action-btn" onClick={() => handleEditRoomType(rt)}>Sửa</button>
-                              <button className="btn btn-danger btn-sm action-btn" style={{ marginLeft: '4px' }} onClick={() => handleDeleteRoomType(rt.id)}>Xóa</button>
-                            </td>
-                          </tr>
-                        )})}
+                            <tr key={rt.id}>
+                              <td>#{rt.id}</td>
+                              <td>{rt.hotel_name}</td>
+                              <td><strong>{rt.name}</strong></td>
+                              <td><span className="price-tag">{price.toLocaleString('vi-VN')} ₫</span></td>
+                              <td>{rt.capacity} người</td>
+                              <td>
+                                <button className="btn btn-outline btn-sm action-btn" onClick={() => handleEditRoomType(rt)}>Sửa</button>
+                                <button className="btn btn-danger btn-sm action-btn" style={{ marginLeft: '4px' }} onClick={() => handleDeleteRoomType(rt.id)}>Xóa</button>
+                              </td>
+                            </tr>
+                          )
+                        })}
                         {roomTypes.length === 0 && (
                           <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Không có loại phòng nào.</td></tr>
                         )}
@@ -1320,17 +1411,17 @@ const AdminDashboard = () => {
         <div className="admin-modal-overlay" onClick={() => setReplyingReviewId(null)}>
           <div className="admin-modal-content glass-panel" onClick={e => e.stopPropagation()}>
             <h3>Phản hồi đánh giá</h3>
-            <p className="text-muted" style={{marginBottom: '1rem'}}>Nội dung này sẽ được hiển thị công khai tới khách hàng.</p>
-            <textarea 
-              placeholder="Nhập lời cảm ơn hoặc xin lỗi của bạn..." 
+            <p className="text-muted" style={{ marginBottom: '1rem' }}>Nội dung này sẽ được hiển thị công khai tới khách hàng.</p>
+            <textarea
+              placeholder="Nhập lời cảm ơn hoặc xin lỗi của bạn..."
               rows="4"
               className="form-control"
-              style={{width: '100%', marginBottom: '1rem', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'vertical'}}
+              style={{ width: '100%', marginBottom: '1rem', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'vertical' }}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
             ></textarea>
 
-            <div style={{display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button className="btn btn-outline" onClick={() => setReplyingReviewId(null)}>Hủy</button>
               <button className="btn btn-primary" onClick={submitReplyReview}>Gửi Phản hồi</button>
             </div>
@@ -1352,7 +1443,7 @@ const AdminDashboard = () => {
               </div>
               <button onClick={() => setSelectedOrder(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>&times;</button>
             </div>
-            
+
             {/* Modal Body - Receipt Style */}
             <div style={{ padding: '1.5rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -1360,28 +1451,28 @@ const AdminDashboard = () => {
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Khách hàng</span>
                   <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>{selectedOrder.userEmail || `User #${selectedOrder.user_id}`}</span>
                 </div>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Homestay</span>
                   <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>{selectedOrder.homestayName || selectedOrder.hotel_name || 'N/A'}</span>
                 </div>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Loại phòng</span>
                   <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>{selectedOrder.roomName || 'N/A'}</span>
                 </div>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Ngày đặt</span>
-                  <span style={{ fontWeight: 500, color: '#334155', textAlign: 'right' }}>{selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString('vi-VN') : 'N/A'}</span>
+                  <span style={{ fontWeight: 500, color: '#334155', textAlign: 'right' }}>{selectedOrder.created_at ? formatLocalDate(selectedOrder.created_at) : 'N/A'}</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Thời gian lưu trú</span>
                   <div style={{ textAlign: 'right', fontWeight: 500, color: '#334155' }}>
-                    <div>{selectedOrder.check_in_datetime ? new Date(selectedOrder.check_in_datetime).toLocaleDateString('vi-VN') : 'N/A'}</div>
+                    <div>{selectedOrder.check_in_datetime ? formatLocalDateOnly(selectedOrder.check_in_datetime) : 'N/A'}</div>
                     <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>đến</div>
-                    <div>{selectedOrder.check_out_datetime ? new Date(selectedOrder.check_out_datetime).toLocaleDateString('vi-VN') : 'N/A'}</div>
+                    <div>{selectedOrder.check_out_datetime ? formatLocalDateOnly(selectedOrder.check_out_datetime) : 'N/A'}</div>
                   </div>
                 </div>
 
@@ -1391,18 +1482,18 @@ const AdminDashboard = () => {
                     {selectedOrder.payment_method === 'QR_Transfer' ? 'Chuyển khoản VietQR' : selectedOrder.payment_method || 'N/A'}
                   </span>
                 </div>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', alignItems: 'center' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Trạng thái</span>
                   <span style={{ fontWeight: 600, color: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' ? '#16a34a' : (selectedOrder.status === 'cancelled' ? '#dc2626' : '#ea580c'), backgroundColor: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' ? '#dcfce7' : (selectedOrder.status === 'cancelled' ? '#fee2e2' : '#ffedd5'), padding: '4px 10px', borderRadius: '6px', fontSize: '0.9rem' }}>
                     {selectedOrder.status === 'completed' ? 'Hoàn tất' :
-                     selectedOrder.status === 'checked_in' ? 'Đang sử dụng' :
-                     selectedOrder.status === 'checked_out' ? 'Đã trả phòng' :
-                     selectedOrder.status === 'cancelled' ? 'Đã hủy' :
-                     selectedOrder.status === 'refund_pending' ? 'Yêu cầu trả phòng sớm' :
-                     selectedOrder.status === 'confirmed' ? 'Đã xác nhận' :
-                     selectedOrder.status === 'pending_payment' ? 'Chờ thanh toán' :
-                     'Chờ Admin duyệt'}
+                      selectedOrder.status === 'checked_in' ? 'Đang sử dụng' :
+                        selectedOrder.status === 'checked_out' ? 'Đã trả phòng' :
+                          selectedOrder.status === 'cancelled' ? 'Đã hủy' :
+                            selectedOrder.status === 'refund_pending' ? 'Yêu cầu trả phòng sớm' :
+                              selectedOrder.status === 'confirmed' ? 'Đã xác nhận' :
+                                selectedOrder.status === 'pending_payment' ? 'Chờ thanh toán' :
+                                  'Chờ Admin duyệt'}
                   </span>
                 </div>
               </div>
@@ -1413,7 +1504,7 @@ const AdminDashboard = () => {
                 <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0ea5e9' }}>{(selectedOrder.amount || selectedOrder.total_amount || 0).toLocaleString('vi-VN')} ₫</span>
               </div>
             </div>
-            
+
             {/* Modal Footer */}
             <div style={{ padding: '1rem 1.5rem', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
               <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: 600, borderRadius: '8px' }} onClick={() => setSelectedOrder(null)}>Đóng chi tiết</button>
@@ -1430,27 +1521,27 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tên Homestay *</label>
-                <input type="text" className="form-control" placeholder="Nhập tên homestay..." style={{ width: '100%' }} value={newHomestay.name} onChange={e => setNewHomestay({...newHomestay, name: e.target.value})} />
+                <input type="text" className="form-control" placeholder="Nhập tên homestay..." style={{ width: '100%' }} value={newHomestay.name} onChange={e => setNewHomestay({ ...newHomestay, name: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Địa chỉ *</label>
-                <input type="text" className="form-control" placeholder="Nhập địa chỉ..." style={{ width: '100%' }} value={newHomestay.address} onChange={e => setNewHomestay({...newHomestay, address: e.target.value})} />
+                <input type="text" className="form-control" placeholder="Nhập địa chỉ..." style={{ width: '100%' }} value={newHomestay.address} onChange={e => setNewHomestay({ ...newHomestay, address: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Mô tả</label>
-                <textarea className="form-control" placeholder="Mô tả về homestay..." style={{ width: '100%', resize: 'vertical' }} rows="3" value={newHomestay.description} onChange={e => setNewHomestay({...newHomestay, description: e.target.value})}></textarea>
+                <textarea className="form-control" placeholder="Mô tả về homestay..." style={{ width: '100%', resize: 'vertical' }} rows="3" value={newHomestay.description} onChange={e => setNewHomestay({ ...newHomestay, description: e.target.value })}></textarea>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tiện ích chung (cách nhau bởi dấu phẩy)</label>
-                <input type="text" className="form-control" placeholder="Ví dụ: WiFi, Hồ bơi, Bếp chung..." style={{ width: '100%' }} value={newHomestay.facilities_text} onChange={e => setNewHomestay({...newHomestay, facilities_text: e.target.value})} />
+                <input type="text" className="form-control" placeholder="Ví dụ: WiFi, Hồ bơi, Bếp chung..." style={{ width: '100%' }} value={newHomestay.facilities_text} onChange={e => setNewHomestay({ ...newHomestay, facilities_text: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Link hình ảnh (cách nhau bởi dấu phẩy)</label>
-                <input type="text" className="form-control" placeholder="https://link-anh-1.jpg, https://..." style={{ width: '100%' }} value={newHomestay.images_text} onChange={e => setNewHomestay({...newHomestay, images_text: e.target.value})} />
+                <input type="text" className="form-control" placeholder="https://link-anh-1.jpg, https://..." style={{ width: '100%' }} value={newHomestay.images_text} onChange={e => setNewHomestay({ ...newHomestay, images_text: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Trạng thái</label>
-                <select className="form-control" style={{ width: '100%' }} value={newHomestay.status} onChange={e => setNewHomestay({...newHomestay, status: e.target.value})}>
+                <select className="form-control" style={{ width: '100%' }} value={newHomestay.status} onChange={e => setNewHomestay({ ...newHomestay, status: e.target.value })}>
                   <option value="active">Hoạt động</option>
                   <option value="inactive">Tạm ngưng</option>
                 </select>
@@ -1472,7 +1563,7 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Thuộc Homestay *</label>
-                <select className="form-control" style={{ width: '100%' }} value={newRoomType.hotel_id} onChange={e => setNewRoomType({...newRoomType, hotel_id: e.target.value})}>
+                <select className="form-control" style={{ width: '100%' }} value={newRoomType.hotel_id} onChange={e => setNewRoomType({ ...newRoomType, hotel_id: e.target.value })}>
                   <option value="">-- Chọn Homestay --</option>
                   {homestays.map(h => (
                     <option key={h.id} value={h.id}>{h.name}</option>
@@ -1481,21 +1572,21 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tên loại phòng *</label>
-                <input type="text" className="form-control" placeholder="Ví dụ: Phòng Đơn Standard, Phòng Đôi View Núi..." style={{ width: '100%' }} value={newRoomType.name} onChange={e => setNewRoomType({...newRoomType, name: e.target.value})} />
+                <input type="text" className="form-control" placeholder="Ví dụ: Phòng Đơn Standard, Phòng Đôi View Núi..." style={{ width: '100%' }} value={newRoomType.name} onChange={e => setNewRoomType({ ...newRoomType, name: e.target.value })} />
               </div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Giá cơ bản (VNĐ) *</label>
-                  <input type="number" className="form-control" placeholder="Ví dụ: 500000" style={{ width: '100%' }} value={newRoomType.base_price} onChange={e => setNewRoomType({...newRoomType, base_price: e.target.value})} />
+                  <input type="number" className="form-control" placeholder="Ví dụ: 500000" style={{ width: '100%' }} value={newRoomType.base_price} onChange={e => setNewRoomType({ ...newRoomType, base_price: e.target.value })} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Sức chứa (người) *</label>
-                  <input type="number" className="form-control" placeholder="Ví dụ: 2" style={{ width: '100%' }} value={newRoomType.capacity} onChange={e => setNewRoomType({...newRoomType, capacity: e.target.value})} />
+                  <input type="number" className="form-control" placeholder="Ví dụ: 2" style={{ width: '100%' }} value={newRoomType.capacity} onChange={e => setNewRoomType({ ...newRoomType, capacity: e.target.value })} />
                 </div>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tiện ích trong phòng (cách nhau bởi dấu phẩy)</label>
-                <input type="text" className="form-control" placeholder="Ví dụ: Điều hòa, Máy sấy, Tivi..." style={{ width: '100%' }} value={newRoomType.room_amenities_text} onChange={e => setNewRoomType({...newRoomType, room_amenities_text: e.target.value})} />
+                <input type="text" className="form-control" placeholder="Ví dụ: Điều hòa, Máy sấy, Tivi..." style={{ width: '100%' }} value={newRoomType.room_amenities_text} onChange={e => setNewRoomType({ ...newRoomType, room_amenities_text: e.target.value })} />
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem' }}>
@@ -1514,7 +1605,7 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Loại phòng *</label>
-                <select className="form-control" style={{ width: '100%' }} value={newRoom.room_type_id} onChange={e => setNewRoom({...newRoom, room_type_id: e.target.value})}>
+                <select className="form-control" style={{ width: '100%' }} value={newRoom.room_type_id} onChange={e => setNewRoom({ ...newRoom, room_type_id: e.target.value })}>
                   <option value="">-- Chọn Loại phòng --</option>
                   {roomTypes.map(rt => (
                     <option key={rt.id} value={rt.id}>{rt.hotel_name} - {rt.name}</option>
@@ -1523,11 +1614,11 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tên/Số phòng *</label>
-                <input type="text" className="form-control" placeholder="Ví dụ: P101, Phòng Hoa Hồng..." style={{ width: '100%' }} value={newRoom.room_number} onChange={e => setNewRoom({...newRoom, room_number: e.target.value})} />
+                <input type="text" className="form-control" placeholder="Ví dụ: P101, Phòng Hoa Hồng..." style={{ width: '100%' }} value={newRoom.room_number} onChange={e => setNewRoom({ ...newRoom, room_number: e.target.value })} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Trạng thái</label>
-                <select className="form-control" style={{ width: '100%' }} value={newRoom.status} onChange={e => setNewRoom({...newRoom, status: e.target.value})}>
+                <select className="form-control" style={{ width: '100%' }} value={newRoom.status} onChange={e => setNewRoom({ ...newRoom, status: e.target.value })}>
                   <option value="available">Trống (Sẵn sàng)</option>
                   <option value="maintenance">Đang bảo trì/Sửa chữa</option>
                 </select>
@@ -1552,23 +1643,23 @@ const AdminDashboard = () => {
             <form onSubmit={handleSaveEditHomestay}>
               <div className="form-group">
                 <label>Tên Khách sạn/Homestay</label>
-                <input type="text" required value={editingHomestay.name} onChange={(e) => setEditingHomestay({...editingHomestay, name: e.target.value})} className="form-control" />
+                <input type="text" required value={editingHomestay.name} onChange={(e) => setEditingHomestay({ ...editingHomestay, name: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Mô tả</label>
-                <textarea rows="3" value={editingHomestay.description} onChange={(e) => setEditingHomestay({...editingHomestay, description: e.target.value})} className="form-control"></textarea>
+                <textarea rows="3" value={editingHomestay.description} onChange={(e) => setEditingHomestay({ ...editingHomestay, description: e.target.value })} className="form-control"></textarea>
               </div>
               <div className="form-group">
                 <label>Tiện ích (cách nhau bởi dấu phẩy)</label>
-                <input type="text" value={editingHomestay.facilities_text} onChange={(e) => setEditingHomestay({...editingHomestay, facilities_text: e.target.value})} className="form-control" />
+                <input type="text" value={editingHomestay.facilities_text} onChange={(e) => setEditingHomestay({ ...editingHomestay, facilities_text: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Địa chỉ</label>
-                <input type="text" value={editingHomestay.address} onChange={(e) => setEditingHomestay({...editingHomestay, address: e.target.value})} className="form-control" />
+                <input type="text" value={editingHomestay.address} onChange={(e) => setEditingHomestay({ ...editingHomestay, address: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Trạng thái</label>
-                <select value={editingHomestay.status} onChange={(e) => setEditingHomestay({...editingHomestay, status: e.target.value})} className="form-control">
+                <select value={editingHomestay.status} onChange={(e) => setEditingHomestay({ ...editingHomestay, status: e.target.value })} className="form-control">
                   <option value="active">Hoạt động</option>
                   <option value="inactive">Tạm ngưng</option>
                 </select>
@@ -1593,19 +1684,19 @@ const AdminDashboard = () => {
             <form onSubmit={handleSaveEditRoomType}>
               <div className="form-group">
                 <label>Tên loại phòng</label>
-                <input type="text" required value={editingRoomType.name} onChange={(e) => setEditingRoomType({...editingRoomType, name: e.target.value})} className="form-control" />
+                <input type="text" required value={editingRoomType.name} onChange={(e) => setEditingRoomType({ ...editingRoomType, name: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Giá cơ bản</label>
-                <input type="number" required value={editingRoomType.base_price} onChange={(e) => setEditingRoomType({...editingRoomType, base_price: e.target.value})} className="form-control" />
+                <input type="number" required value={editingRoomType.base_price} onChange={(e) => setEditingRoomType({ ...editingRoomType, base_price: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Sức chứa (người lớn)</label>
-                <input type="number" required value={editingRoomType.capacity} onChange={(e) => setEditingRoomType({...editingRoomType, capacity: e.target.value})} className="form-control" />
+                <input type="number" required value={editingRoomType.capacity} onChange={(e) => setEditingRoomType({ ...editingRoomType, capacity: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Tiện ích trong phòng</label>
-                <input type="text" value={editingRoomType.room_amenities_text} onChange={(e) => setEditingRoomType({...editingRoomType, room_amenities_text: e.target.value})} className="form-control" />
+                <input type="text" value={editingRoomType.room_amenities_text} onChange={(e) => setEditingRoomType({ ...editingRoomType, room_amenities_text: e.target.value })} className="form-control" />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowEditRoomTypeModal(false)}>Hủy</button>
@@ -1627,11 +1718,11 @@ const AdminDashboard = () => {
             <form onSubmit={handleSaveEditRoom}>
               <div className="form-group">
                 <label>Số / Tên phòng</label>
-                <input type="text" required value={editingRoom.room_number} onChange={(e) => setEditingRoom({...editingRoom, room_number: e.target.value})} className="form-control" />
+                <input type="text" required value={editingRoom.room_number} onChange={(e) => setEditingRoom({ ...editingRoom, room_number: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
                 <label>Trạng thái</label>
-                <select value={editingRoom.status} onChange={(e) => setEditingRoom({...editingRoom, status: e.target.value})} className="form-control">
+                <select value={editingRoom.status} onChange={(e) => setEditingRoom({ ...editingRoom, status: e.target.value })} className="form-control">
                   <option value="available">Trống</option>
                   <option value="occupied">Đang có khách</option>
                   <option value="maintenance">Đang bảo trì/dọn</option>

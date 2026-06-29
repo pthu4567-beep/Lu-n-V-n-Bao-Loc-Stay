@@ -27,12 +27,14 @@ const CustomTooltip = ({ active, payload, label }) => {
 const RevenueChart = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [type, setType] = useState('year'); // 'week' hoặc 'year'
 
   useEffect(() => {
     const fetchRevenue = async () => {
+      setLoading(true);
       const token = sessionStorage.getItem('token');
       try {
-        const res = await axios.get('http://localhost:5000/api/admin/dashboard/revenue-chart', {
+        const res = await axios.get(`http://localhost:5000/api/admin/dashboard/revenue-chart?type=${type}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.data.success) {
@@ -45,11 +47,45 @@ const RevenueChart = () => {
       }
     };
     fetchRevenue();
-  }, []);
+  }, [type]);
 
   return (
     <div className="revenue-chart-container">
-      <h3 className="revenue-chart-title">Tổng quan Doanh thu năm nay</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 className="revenue-chart-title">Tổng quan Doanh thu</h3>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={() => setType('week')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: type === 'week' ? '#eff6ff' : '#fff',
+              color: type === 'week' ? '#2563eb' : '#64748b',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            Tuần này
+          </button>
+          <button 
+            onClick={() => setType('year')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: type === 'year' ? '#eff6ff' : '#fff',
+              color: type === 'year' ? '#2563eb' : '#64748b',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            Năm nay
+          </button>
+        </div>
+      </div>
       
       {loading ? (
         <div className="revenue-chart-loading">Đang tải dữ liệu...</div>

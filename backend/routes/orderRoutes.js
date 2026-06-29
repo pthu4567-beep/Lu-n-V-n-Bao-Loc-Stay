@@ -7,6 +7,7 @@ const { isAdmin, verifyToken } = require('../middleware/authMiddleware'); // Imp
 router.get('/bookings', orderController.getBookings);
 router.put('/bookings/:id/status', orderController.updateBookingStatus);
 router.put('/bookings/:id/checkin', orderController.checkInBooking);
+router.delete('/bookings/:id', orderController.deleteBooking);
 
 // --- PAYMENTS (Admin only) ---
 // Admin restriction should be applied to this route specifically

@@ -6,6 +6,77 @@ import { io } from 'socket.io-client';
 import { showAlert } from '../utils/alert';
 import './Detail.css';
 
+const getRoomImages = (roomType) => {
+  const defaultSets = [
+    [
+      "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=400&h=250&q=80", // Giường ngủ
+      "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&h=250&q=80", // Phòng tắm & bồn tắm (Tiện nghi)
+      "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=400&h=250&q=80"  // Ban công / view ngoài trời
+    ],
+    [
+      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=400&h=250&q=80", // Giường ngủ cao cấp
+      "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=400&h=250&q=80", // Bồn tắm sang trọng (Tiện nghi)
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&h=250&q=80"  // Không gian sofa / uống trà
+    ],
+    [
+      "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=400&h=250&q=80", // Phòng 2 giường đôi
+      "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&w=400&h=250&q=80", // Tiện nghi phòng tắm hiện đại
+      "https://images.unsplash.com/photo-1533044309907-0fa34192bcbc?auto=format&fit=crop&w=400&h=250&q=80"  // Ghế thư giãn ngoài ban công
+    ],
+    [
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=400&h=250&q=80", // Giường ngủ
+      "https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=400&h=250&q=80", // Tiện nghi bồn rửa mặt / phòng tắm
+      "https://images.unsplash.com/photo-1499916078039-922301b0eb9b?auto=format&fit=crop&w=400&h=250&q=80"  // View cửa sổ nhìn ra thiên nhiên
+    ],
+    [
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&h=250&q=80", // Giường tiêu chuẩn
+      "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&h=250&q=80", // Bồn tắm sứ (Tiện nghi)
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&h=250&q=80"  // Khu vực phòng khách mini
+    ]
+  ];
+
+  if (!roomType) return defaultSets[0];
+
+  const typeLower = roomType.toLowerCase();
+
+  if (typeLower.includes('suite') || typeLower.includes('trăng mật') || typeLower.includes('honeymoon')) {
+    return [
+      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=400&h=250&q=80", // Bed
+      "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=400&h=250&q=80", // Bathtub with view (Tiện nghi)
+      "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=400&h=250&q=80"  // Romantic balcony view
+    ];
+  }
+  if (typeLower.includes('villa') || typeLower.includes('biệt thự') || typeLower.includes('hồ bơi')) {
+    return [
+      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&h=250&q=80", // Villa room
+      "https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=400&h=250&q=80", // Hồ bơi riêng (Tiện nghi nổi bật)
+      "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=400&h=250&q=80"  // Phòng tắm luxury
+    ];
+  }
+  if (typeLower.includes('bungalow') || typeLower.includes('lều') || typeLower.includes('gỗ') || typeLower.includes('mây') || typeLower.includes('glamping')) {
+    return [
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=400&h=250&q=80", // Phòng ngủ ấm cúng
+      "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&h=250&q=80", // Phòng tắm tiện nghi
+      "https://images.unsplash.com/photo-1499916078039-922301b0eb9b?auto=format&fit=crop&w=400&h=250&q=80"  // View thiên nhiên
+    ];
+  }
+  if (typeLower.includes('gia đình') || typeLower.includes('family') || typeLower.includes('tập thể')) {
+    return defaultSets[2]; 
+  }
+  
+  if (typeLower.includes('superior') || typeLower.includes('vườn trà')) {
+    return defaultSets[0];
+  }
+
+  // Thuật toán băm để lấy ngẫu nhiên 1 bộ ảnh cố định cho các tên phòng không khớp từ khóa
+  let hash = 0;
+  for (let i = 0; i < roomType.length; i++) {
+    hash += roomType.charCodeAt(i);
+  }
+  
+  return defaultSets[hash % defaultSets.length];
+};
+
 const Detail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -13,6 +84,7 @@ const Detail = () => {
   const [hotel, setHotel] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewRoomDetail, setViewRoomDetail] = useState(null);
 
   // Form Đặt phòng
   const [checkIn, setCheckIn] = useState('');
@@ -176,28 +248,49 @@ const Detail = () => {
             <h2>Loại phòng hiện có</h2>
             <div className="rooms-list">
               {hotel.rooms.map(room => (
-                <div className={`room-card ${selectedRoom?.id === room.id ? 'selected' : ''}`} key={room.id}>
-                  <div className="room-info">
-                    <h3>{room.type}</h3>
-                    <p>Sức chứa: {room.adult_capacity} người lớn{room.child_capacity > 0 ? `, ${room.child_capacity} trẻ em` : ''} ({room.capacity} khách)</p>
-                    <p style={{fontSize: '0.85rem', color: 'var(--primary-600)', marginTop: '4px'}}>{room.room_amenities_text}</p>
-                    {room.available > 0 ? (
-                        <p style={{color: 'var(--status-confirmed)', fontWeight: 500}}>Còn {room.available} phòng trống</p>
-                    ) : (
-                        <p style={{color: 'var(--status-danger)', fontWeight: 500}}>Đã hết phòng loại này</p>
-                    )}
+                <div className={`room-card ${selectedRoom?.id === room.id ? 'selected' : ''}`} key={room.id} style={{ display: 'block', padding: '20px' }}>
+                  <h3 style={{ marginBottom: '15px', fontSize: '1.25rem' }}>{room.type}</h3>
+                  
+                  {/* KHU VỰC ẢNH PHÒNG - MỤC ĐÍCH BẢO VỆ LUẬN VĂN: 
+                      Bạn có thể tự thay đổi đường link ảnh (src) vào đây để đổi ảnh hiển thị */}
+                  <div className="room-detail-images" style={{ display: 'flex', gap: '10px', overflowX: 'auto', marginBottom: '15px', paddingBottom: '10px' }}>
+                      {getRoomImages(room.type).map((imgUrl, idx) => (
+                        <img key={idx} src={imgUrl} alt={`${room.type} ${idx + 1}`} style={{ width: '200px', height: '140px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+                      ))}
                   </div>
-                  <div className="room-action">
-                    <div className="room-price">
-                      <strong>{room.price.toLocaleString('vi-VN')} ₫</strong>/đêm
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
+                    <div className="room-info" style={{ flex: 1, minWidth: '250px' }}>
+                      <p><strong>Sức chứa:</strong> {room.adult_capacity} người lớn, {room.child_capacity} trẻ em (Tổng: {room.capacity} khách)</p>
+                      <p style={{fontSize: '0.9rem', color: 'var(--primary-600)', marginTop: '4px'}}><strong>Tiện nghi:</strong> {room.room_amenities_text || 'Đầy đủ tiện nghi cơ bản'}</p>
+                      {room.available > 0 ? (
+                          <p style={{color: 'var(--status-confirmed)', fontWeight: 500, marginTop: '8px'}}>Còn trống {room.available} phòng</p>
+                      ) : (
+                          <p style={{color: 'var(--status-danger)', fontWeight: 500, marginTop: '8px'}}>Hiện tại đã hết phòng</p>
+                      )}
                     </div>
-                    <button 
-                      className={`btn ${selectedRoom?.id === room.id ? 'btn-primary' : 'btn-outline'}`}
-                      onClick={() => room.available > 0 && setSelectedRoom(room)}
-                      disabled={room.available === 0}
-                    >
-                      {room.available === 0 ? 'Hết phòng' : selectedRoom?.id === room.id ? 'Đã chọn' : 'Chọn phòng'}
-                    </button>
+                    <div className="room-action" style={{ textAlign: 'right' }}>
+                      <div className="room-price" style={{ marginBottom: '10px' }}>
+                        <strong style={{ fontSize: '1.2rem', color: '#ef4444' }}>{room.price.toLocaleString('vi-VN')} ₫</strong>/đêm
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button 
+                          className="btn btn-outline"
+                          style={{ padding: '10px 20px', fontWeight: 600 }}
+                          onClick={() => setViewRoomDetail(room)}
+                        >
+                          Xem chi tiết
+                        </button>
+                        <button 
+                          className={`btn ${selectedRoom?.id === room.id ? 'btn-primary' : 'btn-outline'}`}
+                          style={{ padding: '10px 20px', fontWeight: 600 }}
+                          onClick={() => room.available > 0 && setSelectedRoom(room)}
+                          disabled={room.available === 0}
+                        >
+                          {room.available === 0 ? 'Hết phòng' : selectedRoom?.id === room.id ? 'Đã chọn' : 'Chọn phòng này'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -273,6 +366,68 @@ const Detail = () => {
           </div>
         </div>
       </div>
+
+      {/* Room Detail Modal */}
+      {viewRoomDetail && (
+        <div className="room-detail-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setViewRoomDetail(null)}>
+          <div className="room-detail-modal-content" style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#0f172a' }}>{viewRoomDetail.type}</h2>
+              <button onClick={() => setViewRoomDetail(null)} style={{ background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', color: '#64748b', padding: '0 10px' }}>&times;</button>
+            </div>
+            <div className="modal-images" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+                {getRoomImages(viewRoomDetail.type).map((imgUrl, idx) => (
+                  <img key={idx} src={imgUrl} alt={`${viewRoomDetail.type} ${idx + 1}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px' }} />
+                ))}
+            </div>
+            <div className="modal-info">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', marginBottom: '10px', color: '#1e293b' }}>Thông tin phòng</h3>
+                  <p style={{ fontSize: '1.05rem', marginBottom: '8px', color: '#475569' }}><strong>Sức chứa:</strong> {viewRoomDetail.adult_capacity} người lớn, {viewRoomDetail.child_capacity} trẻ em</p>
+                  <p style={{ fontSize: '1.05rem', marginBottom: '8px', color: '#475569' }}><strong>Tổng khách tối đa:</strong> {viewRoomDetail.capacity} khách</p>
+                  <p style={{ fontSize: '1.05rem', color: '#475569' }}><strong>Trạng thái:</strong> {viewRoomDetail.available > 0 ? <span style={{color: '#10b981', fontWeight: 600}}>Còn trống {viewRoomDetail.available} phòng</span> : <span style={{color: '#ef4444', fontWeight: 600}}>Hiện tại đã hết phòng</span>}</p>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', marginBottom: '10px', color: '#1e293b' }}>Tiện nghi nổi bật</h3>
+                  <ul style={{ paddingLeft: '20px', color: '#475569', fontSize: '1.05rem', lineHeight: '1.6' }}>
+                    {viewRoomDetail.room_amenities_text ? viewRoomDetail.room_amenities_text.split(',').map((amenity, idx) => (
+                      <li key={idx}>{amenity.trim()}</li>
+                    )) : (
+                      <>
+                        <li>Ban công hướng đồi chè</li>
+                        <li>Bồn tắm sứ cao cấp</li>
+                        <li>Smart TV & Wifi tốc độ cao</li>
+                        <li>Minibar miễn phí trà/cà phê</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '25px', padding: '20px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                <div>
+                  <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 500 }}>Giá mỗi đêm</span>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#ef4444' }}>{viewRoomDetail.price.toLocaleString('vi-VN')} ₫</div>
+                </div>
+                <button 
+                    className="btn btn-primary"
+                    style={{ padding: '12px 28px', fontWeight: 600, fontSize: '1.1rem', borderRadius: '8px' }}
+                    onClick={() => {
+                      if (viewRoomDetail.available > 0) {
+                        setSelectedRoom(viewRoomDetail);
+                        setViewRoomDetail(null);
+                      }
+                    }}
+                    disabled={viewRoomDetail.available === 0}
+                >
+                    {viewRoomDetail.available === 0 ? 'Đã hết phòng' : 'Chọn phòng này'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

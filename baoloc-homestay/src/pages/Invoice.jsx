@@ -47,6 +47,9 @@ const Invoice = () => {
   return (
     <div className="invoice-page-container">
       <div className="invoice-actions no-print">
+        <button className="btn btn-outline" onClick={() => navigate('/')}>
+          <HomeIcon size={16} /> Về trang chủ
+        </button>
         <button className="btn btn-outline" onClick={() => navigate('/profile')}>
           <ArrowLeft size={16} /> Quay lại Hồ sơ
         </button>
