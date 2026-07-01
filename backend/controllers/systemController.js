@@ -7,7 +7,7 @@ const { sql, poolPromise } = require('../db');
 exports.getUsers = async (req, res) => {
     try {
         const pool = await poolPromise;
-        const result = await pool.request().query('SELECT id, role_id, email, phone, created_at, is_blocked FROM users ORDER BY id DESC');
+        const result = await pool.request().query('SELECT id, role_id, email, phone, created_at, is_blocked, hotel_id FROM users ORDER BY id DESC');
         res.json({ success: true, message: 'Thành công', data: result.recordset });
     } catch (err) {
         console.error(err);
@@ -18,14 +18,23 @@ exports.getUsers = async (req, res) => {
 exports.updateUserRole = async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
-        const { role_id } = req.body;
+        const { role_id, hotel_id } = req.body;
         const pool = await poolPromise;
         
         const request = pool.request();
         request.input('id', sql.Int, userId);
         request.input('role_id', sql.Int, role_id);
 
-        await request.query('UPDATE users SET role_id = @role_id WHERE id = @id');
+        let query = 'UPDATE users SET role_id = @role_id';
+        if (role_id === 4 && hotel_id) {
+            query += ', hotel_id = @hotel_id';
+            request.input('hotel_id', sql.Int, hotel_id);
+        } else {
+            query += ', hotel_id = NULL';
+        }
+        query += ' WHERE id = @id';
+
+        await request.query(query);
         res.json({ success: true, message: 'Cập nhật phân quyền thành công' });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });

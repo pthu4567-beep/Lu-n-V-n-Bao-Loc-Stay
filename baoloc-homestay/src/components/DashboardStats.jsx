@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BedDouble, CheckCircle2, TrendingUp, TrendingDown, DollarSign, Clock, ArrowRight } from 'lucide-react';
+import { BedDouble, CheckCircle2, TrendingUp, TrendingDown, DollarSign, Clock, ArrowRight, Building, Award } from 'lucide-react';
 import axios from 'axios';
 import './DashboardStats.css';
 
@@ -36,7 +36,16 @@ const DashboardStats = () => {
 
   if (loading) return <div style={{ padding: '1.5rem', textAlign: 'center' }}>Đang tải số liệu tổng quan...</div>;
 
-  const { occupancyRate, successRate, currentRevenue, growthPercent, weekRevenue, yearRevenue } = stats;
+  const { 
+    occupancyRate, 
+    successRate, 
+    currentRevenue, 
+    growthPercent, 
+    weekRevenue, 
+    yearRevenue,
+    topHotel,
+    topRoomType 
+  } = stats;
 
 
 
@@ -109,6 +118,41 @@ const DashboardStats = () => {
           <div className="stat-badge-container">
             <span className="stat-compare">trong năm nay</span>
           </div>
+        </div>
+
+        {/* Khách sạn nổi bật */}
+        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+          <div className="stat-header">
+            <h3 className="stat-title">Khách sạn yêu thích nhất</h3>
+            <div className="stat-icon-box success">
+              <Building size={24} />
+            </div>
+          </div>
+          <div className="stat-value" style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+            {topHotel ? topHotel.name : 'Chưa có dữ liệu'}
+          </div>
+          <div className="stat-badge-container" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+            {topHotel && (
+              <>
+                <span className="stat-badge positive" style={{ fontSize: '0.85rem' }}>
+                  <DollarSign size={14} />
+                  {topHotel.totalRevenue.toLocaleString('vi-VN')} ₫
+                </span>
+                <span className="stat-compare" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <CheckCircle2 size={14} />
+                  {topHotel.totalBookings} lượt đặt
+                </span>
+              </>
+            )}
+          </div>
+          {topRoomType && (
+             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+               <Award size={18} color="#f59e0b" />
+               <span style={{ fontSize: '0.9rem', color: '#475569' }}>
+                 Phòng đặt nhiều nhất: <strong>{topRoomType.name}</strong> ({topRoomType.totalBookings} lượt)
+               </span>
+             </div>
+          )}
         </div>
       </div>
     </div>

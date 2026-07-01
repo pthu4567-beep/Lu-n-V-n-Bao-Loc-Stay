@@ -28,13 +28,14 @@ const RevenueChart = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState('year'); // 'week' hoặc 'year'
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     const fetchRevenue = async () => {
       setLoading(true);
       const token = sessionStorage.getItem('token');
       try {
-        const res = await axios.get(`http://localhost:5000/api/admin/dashboard/revenue-chart?type=${type}`, {
+        const res = await axios.get(`http://localhost:5000/api/admin/dashboard/revenue-chart?type=${type}&year=${selectedYear}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.data.success) {
@@ -47,7 +48,7 @@ const RevenueChart = () => {
       }
     };
     fetchRevenue();
-  }, [type]);
+  }, [type, selectedYear]);
 
   return (
     <div className="revenue-chart-container">
@@ -69,8 +70,13 @@ const RevenueChart = () => {
           >
             Tuần này
           </button>
-          <button 
-            onClick={() => setType('year')}
+          
+          <select 
+            value={type === 'year' ? selectedYear : 'none'} 
+            onChange={(e) => {
+              setType('year');
+              setSelectedYear(Number(e.target.value));
+            }}
             style={{
               padding: '6px 12px',
               borderRadius: '6px',
@@ -79,11 +85,15 @@ const RevenueChart = () => {
               color: type === 'year' ? '#2563eb' : '#64748b',
               fontWeight: 600,
               cursor: 'pointer',
-              fontSize: '0.85rem'
+              fontSize: '0.85rem',
+              outline: 'none'
             }}
           >
-            Năm nay
-          </button>
+            {type !== 'year' && <option value="none" disabled>Chọn năm</option>}
+            {[2024, 2025, 2026, 2027].map(y => (
+              <option key={y} value={y}>Năm {y}</option>
+            ))}
+          </select>
         </div>
       </div>
       

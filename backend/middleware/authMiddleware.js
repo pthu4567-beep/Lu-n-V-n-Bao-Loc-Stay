@@ -29,10 +29,10 @@ function isAdmin(req, res, next) {
     next();
 }
 
-// Middleware xác thực quyền Chủ Homestay (role_id = 2) hoặc Admin (role_id = 1)
+// Middleware xác thực quyền Chủ Homestay (role_id = 2) hoặc Admin (role_id = 1) hoặc Staff (role_id = 4)
 function isOwner(req, res, next) {
-    if (!req.user || (req.user.roleId !== 2 && req.user.roleId !== 1)) {
-        return res.status(403).json({ error: 'Quyền truy cập bị từ chối! Yêu cầu quyền chủ homestay (Owner).' });
+    if (!req.user || (req.user.roleId !== 2 && req.user.roleId !== 1 && req.user.roleId !== 4)) {
+        return res.status(403).json({ error: 'Quyền truy cập bị từ chối! Yêu cầu quyền quản lý.' });
     }
     next();
 }

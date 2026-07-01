@@ -134,7 +134,7 @@ const Header = () => {
 
                 {showDropdown && (
                   <div className="dropdown-menu">
-                    {user && (user.roleId === 1 || user.roleId === 2) && (
+                    {user && [1, 2, 4].includes(parseInt(user.roleId)) && (
                       <button className="dropdown-item text-primary" onClick={() => navigate('/admin')} style={{ fontWeight: 'bold' }}>
                         <User size={16} /> Trang quản lý
                       </button>

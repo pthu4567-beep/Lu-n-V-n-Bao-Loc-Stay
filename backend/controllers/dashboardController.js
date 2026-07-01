@@ -37,25 +37,55 @@ exports.getDashboardStats = async (req, res) => {
             WHERE b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
         `;
 
+        // Query 4: Khách sạn yêu thích nhất (doanh thu cao nhất)
+        let topHotelQuery = `
+            SELECT TOP 1
+                h.id, h.name, 
+                SUM(b.total_amount) as totalRevenue, 
+                COUNT(b.id) as totalBookings
+            FROM hotels h
+            JOIN bookings b ON h.id = b.hotel_id
+            WHERE b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
+        `;
+
         const request1 = pool.request();
         const request2 = pool.request();
         const request3 = pool.request();
+        const request4 = pool.request();
 
         // Xử lý phân quyền Owner (roleId = 2)
         if (roleId === 2) {
             occQuery += ` WHERE h.owner_id = @userId`;
             bookQuery += ` WHERE h.owner_id = @userId`;
             revQuery += ` AND h.owner_id = @userId`;
+            topHotelQuery += ` AND h.owner_id = @userId`;
 
             request1.input('userId', sql.Int, userId);
             request2.input('userId', sql.Int, userId);
             request3.input('userId', sql.Int, userId);
+            request4.input('userId', sql.Int, userId);
+        } else if (roleId === 4) {
+            const hotelId = req.user.hotelId;
+            occQuery += ` WHERE h.id = @hotelId`;
+            bookQuery += ` WHERE h.id = @hotelId`;
+            revQuery += ` AND h.id = @hotelId`;
+            topHotelQuery += ` AND h.id = @hotelId`;
+            request1.input('hotelId', sql.Int, hotelId);
+            request2.input('hotelId', sql.Int, hotelId);
+            request3.input('hotelId', sql.Int, hotelId);
+            request4.input('hotelId', sql.Int, hotelId);
         }
+        
+        topHotelQuery += `
+            GROUP BY h.id, h.name
+            ORDER BY totalRevenue DESC
+        `;
 
-        const [occRes, bookRes, revRes] = await Promise.all([
+        const [occRes, bookRes, revRes, topHotelRes] = await Promise.all([
             request1.query(occQuery),
             request2.query(bookQuery),
-            request3.query(revQuery)
+            request3.query(revQuery),
+            request4.query(topHotelQuery)
         ]);
 
         const totalRooms = occRes.recordset[0].totalRooms || 0;
@@ -78,6 +108,32 @@ exports.getDashboardStats = async (req, res) => {
             growthPercent = Math.round(((currentRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
         }
 
+        let topHotel = null;
+        let topRoomType = null;
+        if (topHotelRes.recordset.length > 0) {
+            topHotel = topHotelRes.recordset[0];
+            
+            // Tìm loại phòng được đặt nhiều nhất của khách sạn này
+            const request5 = pool.request();
+            request5.input('topHotelId', sql.Int, topHotel.id);
+            const topRoomTypeQuery = `
+                SELECT TOP 1
+                    rt.name, COUNT(bd.id) as totalBookings
+                FROM booking_details bd
+                JOIN bookings b ON bd.booking_id = b.id
+                JOIN rooms r ON bd.room_id = r.id
+                JOIN room_types rt ON r.room_type_id = rt.id
+                WHERE rt.hotel_id = @topHotelId
+                  AND b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
+                GROUP BY rt.name
+                ORDER BY totalBookings DESC
+            `;
+            const topRoomTypeRes = await request5.query(topRoomTypeQuery);
+            if (topRoomTypeRes.recordset.length > 0) {
+                topRoomType = topRoomTypeRes.recordset[0];
+            }
+        }
+
         res.json({
             success: true,
             data: {
@@ -86,7 +142,9 @@ exports.getDashboardStats = async (req, res) => {
                 currentRevenue,
                 growthPercent,
                 weekRevenue,
-                yearRevenue
+                yearRevenue,
+                topHotel,
+                topRoomType
             }
         });
     } catch (err) {
@@ -119,12 +177,16 @@ exports.getRevenueChart = async (req, res) => {
             `;
             if (roleId === 2) {
                 query += ` AND h.owner_id = @userId`;
+            } else if (roleId === 4) {
+                query += ` AND b.hotel_id = @hotelId`;
             }
             query += ` GROUP BY CAST(b.created_at AS DATE)`;
 
             const request = pool.request();
             if (roleId === 2) {
                 request.input('userId', sql.Int, userId);
+            } else if (roleId === 4) {
+                request.input('hotelId', sql.Int, req.user.hotelId);
             }
 
             const result = await request.query(query);
@@ -158,6 +220,7 @@ exports.getRevenueChart = async (req, res) => {
         }
 
         // Mặc định: Biểu đồ năm (12 tháng)
+        const filterYear = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
         let query = `
             SELECT 
                 MONTH(b.created_at) as month,
@@ -170,19 +233,24 @@ exports.getRevenueChart = async (req, res) => {
         }
 
         query += ` 
-            WHERE YEAR(b.created_at) = YEAR(GETDATE())
+            WHERE YEAR(b.created_at) = @filterYear
             AND b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
         `;
 
         if (roleId === 2) {
             query += ` AND h.owner_id = @userId`;
+        } else if (roleId === 4) {
+            query += ` AND b.hotel_id = @hotelId`;
         }
 
         query += ` GROUP BY MONTH(b.created_at)`;
 
         const request = pool.request();
+        request.input('filterYear', sql.Int, filterYear);
         if (roleId === 2) {
             request.input('userId', sql.Int, userId);
+        } else if (roleId === 4) {
+            request.input('hotelId', sql.Int, req.user.hotelId);
         }
 
         const result = await request.query(query);

@@ -85,9 +85,9 @@ const Auth = () => {
         sessionStorage.setItem('user', JSON.stringify(res.data.user));
         showToastMessage('Đăng nhập thành công!', 'success');
         
-        // Nếu là Admin (roleId = 1) hoặc Owner (roleId = 2) thì chuyển hướng thẳng vào trang quản trị
+        // Nếu là Admin (roleId = 1) hoặc Owner (roleId = 2) hoặc Staff (roleId = 4) thì chuyển hướng thẳng vào trang quản trị
         setTimeout(() => {
-          if (res.data.user.roleId === 1 || res.data.user.roleId === 2) {
+          if ([1, 2, 4].includes(parseInt(res.data.user.roleId))) {
             navigate('/admin');
           } else {
             navigate('/');

@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, MessageSquare, CheckCircle, Mail, Phone, Calendar, DollarSign, Home as HomeIcon, MapPin, Grid, Layers, Users, Star, LogOut, PieChart, Check, RefreshCw, ArrowRight, Eye, Plus, Edit, Trash2, CheckCircle2, XCircle, MessageCircle, X } from 'lucide-react';
+import { ShieldCheck, MessageSquare, CheckCircle, Mail, Phone, Calendar, DollarSign, Home as HomeIcon, MapPin, Grid, Layers, Users, Star, LogOut, PieChart, Check, RefreshCw, ArrowRight, Eye, Plus, Edit, Trash2, CheckCircle2, XCircle, MessageCircle, X, Building, Award } from 'lucide-react';
 import axios from 'axios';
 import { showAlert, showToast, showConfirm } from '../utils/alert';
 import DashboardStats from '../components/DashboardStats';
@@ -77,6 +77,7 @@ const AdminDashboard = () => {
   const [revenueFilterYear, setRevenueFilterYear] = useState(new Date().getUTCFullYear().toString());
   const [revenueFilterMonth, setRevenueFilterMonth] = useState('all');
   const [revenueFilterWeek, setRevenueFilterWeek] = useState('all');
+  const [revenueFilterHomestay, setRevenueFilterHomestay] = useState('all');
 
   // Search States
   const [searchPayment, setSearchPayment] = useState('');
@@ -95,7 +96,8 @@ const AdminDashboard = () => {
       return;
     }
     const parsedUser = JSON.parse(storedUser);
-    if (parsedUser.roleId !== 1 && parsedUser.roleId !== 2) {
+    const roleId = parseInt(parsedUser.roleId);
+    if (![1, 2, 4].includes(roleId)) {
       showAlert('Từ chối truy cập', 'Bạn không có quyền truy cập trang quản trị!', 'warning').then(() => {
         navigate('/');
       });
@@ -216,16 +218,19 @@ const AdminDashboard = () => {
     const token = sessionStorage.getItem('token');
     if (!token) return;
 
-    const confirmResult = await showConfirm('Nhận phòng', `Xác nhận khách đã đến nhận phòng cho đơn hàng #${bookingId}?`);
-    if (!confirmResult.isConfirmed) return;
+    const cccd = prompt('Vui lòng nhập số Căn cước công dân (CCCD) của khách hàng để nhận phòng (Bắt buộc):');
+    if (!cccd) {
+      showToast('Vui lòng nhập số Căn cước công dân để nhận phòng!', 'error');
+      return;
+    }
 
     try {
-      const res = await axios.put(`http://localhost:5000/api/admin/orders/bookings/${bookingId}/checkin`, {}, {
+      const res = await axios.put(`http://localhost:5000/api/admin/orders/bookings/${bookingId}/checkin`, { cccd }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
         showToast(res.data.message, 'success');
-        setPayments(payments.map(p => (p.bookingId || p.id) === bookingId ? { ...p, status: 'checked_in' } : p));
+        setPayments(payments.map(p => (p.bookingId || p.id) === bookingId ? { ...p, status: 'checked_in', guest_cccd: cccd } : p));
       }
     } catch (err) {
       showToast(err.response?.data?.error || 'Lỗi khi xác nhận nhận phòng', 'error');
@@ -296,16 +301,22 @@ const AdminDashboard = () => {
   // --- USERS MANAGEMENT ---
   const handleUpdateRole = async (id, currentRoleId) => {
     const token = sessionStorage.getItem('token');
-    const newRole = parseInt(prompt("Nhập Role ID mới (1: Admin, 2: Owner, 3: Customer):", currentRoleId));
-    if (!newRole || ![1, 2, 3].includes(newRole)) return;
+    const newRole = parseInt(prompt("Nhập Role ID mới (1: Admin, 2: Owner, 3: Customer, 4: Staff):", currentRoleId));
+    if (!newRole || ![1, 2, 3, 4].includes(newRole)) return;
+
+    let hotelId = null;
+    if (newRole === 4) {
+      hotelId = parseInt(prompt("Nhập ID Khách sạn (Homestay) mà nhân viên này quản lý:"));
+      if (!hotelId) return;
+    }
 
     try {
-      const res = await axios.put(`http://localhost:5000/api/admin/system/users/${id}/role`, { role_id: newRole }, {
+      const res = await axios.put(`http://localhost:5000/api/admin/system/users/${id}/role`, { role_id: newRole, hotel_id: hotelId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
         showToast("Cập nhật thành công!", 'success');
-        setUsersList(usersList.map(u => u.id === id ? { ...u, role_id: newRole } : u));
+        setUsersList(usersList.map(u => u.id === id ? { ...u, role_id: newRole, hotel_id: hotelId } : u));
       }
     } catch (err) {
       showToast(err.response?.data?.error || "Lỗi cập nhật quyền", 'error');
@@ -593,26 +604,32 @@ const AdminDashboard = () => {
             className={`nav-btn ${activeTab === 'revenue' ? 'active' : ''}`}
             onClick={() => setActiveTab('revenue')}
           >
-            <DollarSign size={18} /> Quản lý Doanh thu
+            <DollarSign size={18} /> Quản lý Đơn & Doanh thu
           </button>
-          <button
-            className={`nav-btn ${activeTab === 'homestays' ? 'active' : ''}`}
-            onClick={() => setActiveTab('homestays')}
-          >
-            <HomeIcon size={18} /> Quản lý Homestay
-          </button>
-          <button
-            className={`nav-btn ${activeTab === 'roomTypes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('roomTypes')}
-          >
-            <Grid size={18} /> Loại phòng
-          </button>
-          <button
-            className={`nav-btn ${activeTab === 'rooms' ? 'active' : ''}`}
-            onClick={() => setActiveTab('rooms')}
-          >
-            <Layers size={18} /> Phòng
-          </button>
+          
+          {user.roleId !== 4 && (
+            <>
+              <button
+                className={`nav-btn ${activeTab === 'homestays' ? 'active' : ''}`}
+                onClick={() => setActiveTab('homestays')}
+              >
+                <HomeIcon size={18} /> Quản lý Homestay
+              </button>
+              <button
+                className={`nav-btn ${activeTab === 'roomTypes' ? 'active' : ''}`}
+                onClick={() => setActiveTab('roomTypes')}
+              >
+                <Grid size={18} /> Loại phòng
+              </button>
+              <button
+                className={`nav-btn ${activeTab === 'rooms' ? 'active' : ''}`}
+                onClick={() => setActiveTab('rooms')}
+              >
+                <Layers size={18} /> Phòng
+              </button>
+            </>
+          )}
+
           <button
             className={`nav-btn ${activeTab === 'reviews' ? 'active' : ''}`}
             onClick={() => setActiveTab('reviews')}
@@ -703,6 +720,12 @@ const AdminDashboard = () => {
                         <option key={i + 1} value={i + 1}>Tuần {i + 1}</option>
                       ))}
                     </select>
+                    <select className="filter-select" value={revenueFilterHomestay} onChange={e => setRevenueFilterHomestay(e.target.value)}>
+                      <option value="all">Tất cả Homestay</option>
+                      {[...new Set(payments.map(p => p.homestayName))].filter(Boolean).map(hName => (
+                        <option key={hName} value={hName}>{hName}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 {loading ? (
@@ -726,17 +749,86 @@ const AdminDashboard = () => {
                         if (revenueFilterWeek !== 'all') {
                           if (getWeekNumber(pDate).toString() !== revenueFilterWeek.toString()) return false;
                         }
+                        if (revenueFilterHomestay !== 'all') {
+                          if (p.homestayName !== revenueFilterHomestay) return false;
+                        }
                         return true;
                       });
 
                       const totalRevenue = validRevenue.reduce((sum, p) => sum + Number(p.amount || p.total_amount || 0), 0);
 
+                      let filteredTopHotel = null;
+                      let filteredTopRoomType = null;
+
+                      if (validRevenue.length > 0) {
+                        const hotelStats = {};
+                        validRevenue.forEach(p => {
+                          const hName = p.homestayName || 'Khách sạn chưa rõ';
+                          const amount = Number(p.amount || p.total_amount || 0);
+                          if (!hotelStats[hName]) {
+                            hotelStats[hName] = { name: hName, totalRevenue: 0, totalBookings: 0 };
+                          }
+                          hotelStats[hName].totalRevenue += amount;
+                          hotelStats[hName].totalBookings += 1;
+                        });
+                        const sortedHotels = Object.values(hotelStats).sort((a, b) => b.totalRevenue - a.totalRevenue);
+                        filteredTopHotel = sortedHotels[0];
+
+                        if (filteredTopHotel) {
+                          const roomStats = {};
+                          validRevenue.filter(p => (p.homestayName || 'Khách sạn chưa rõ') === filteredTopHotel.name).forEach(p => {
+                            const rName = p.roomName || 'Phòng chưa rõ';
+                            if (!roomStats[rName]) {
+                              roomStats[rName] = { name: rName, totalBookings: 0 };
+                            }
+                            roomStats[rName].totalBookings += 1;
+                          });
+                          const sortedRooms = Object.values(roomStats).sort((a, b) => b.totalBookings - a.totalBookings);
+                          filteredTopRoomType = sortedRooms[0];
+                        }
+                      }
+
                       return (
+                        <>
+                          {validRevenue.length > 0 && filteredTopHotel && (
+                            <div className="dashboard-stats-grid" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                              <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                                <div className="stat-header">
+                                  <h3 className="stat-title">Khách sạn có doanh thu cao nhất (Theo bộ lọc)</h3>
+                                  <div className="stat-icon-box success">
+                                    <Building size={24} />
+                                  </div>
+                                </div>
+                                <div className="stat-value" style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                                  {filteredTopHotel.name}
+                                </div>
+                                <div className="stat-badge-container" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                                  <span className="stat-badge positive" style={{ fontSize: '0.85rem' }}>
+                                    <DollarSign size={14} />
+                                    {filteredTopHotel.totalRevenue.toLocaleString('vi-VN')} ₫
+                                  </span>
+                                  <span className="stat-compare" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <CheckCircle2 size={14} />
+                                    {filteredTopHotel.totalBookings} lượt đặt
+                                  </span>
+                                </div>
+                                {filteredTopRoomType && (
+                                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                     <Award size={18} color="#f59e0b" />
+                                     <span style={{ fontSize: '0.9rem', color: '#475569' }}>
+                                       Phòng đặt nhiều nhất: <strong>{filteredTopRoomType.name}</strong> ({filteredTopRoomType.totalBookings} lượt)
+                                     </span>
+                                   </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         <table className="admin-table">
                           <thead>
                             <tr>
                               <th>Mã Đơn</th>
                               <th>Khách hàng</th>
+                              <th>Homestay</th>
                               <th>Phòng</th>
                               <th>Số tiền (VNĐ)</th>
                               <th>Trạng thái</th>
@@ -751,35 +843,56 @@ const AdminDashboard = () => {
                                 <tr key={p.id || p.bookingId}>
                                   <td>#{p.id || p.bookingId}</td>
                                   <td>{p.guest_name || p.userEmail}</td>
+                                  <td>{p.homestayName || 'Homestay'}</td>
                                   <td>{p.roomName || 'Phòng'}</td>
                                   <td style={{ fontWeight: 'bold', color: '#10b981' }}>
                                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.amount || p.total_amount || 0)}
                                   </td>
                                   <td>
-                                    <span className={`status-badge status-${st}`}>
-                                      {(st === 'paid' || st === 'confirmed') ? 'Đã thanh toán' : st}
+                                    <span className={`status-badge status-${st === 'checked_in' ? 'confirmed' : st}`}>
+                                      {(st === 'paid' || st === 'confirmed') ? 'Đã thanh toán' : (st === 'checked_in' ? 'Đang sử dụng' : (st === 'completed' ? 'Hoàn tất' : st))}
                                     </span>
                                   </td>
                                   <td>{p.created_at ? formatLocalDateOnly(p.created_at) : ''}</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <button
-                                      className="btn btn-sm"
-                                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
-                                      onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
-                                      onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
-                                    >
-                                      <Trash2 size={16} />
-                                    </button>
+                                  <td style={{ textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                    {(st === 'paid' || st === 'confirmed') && (
+                                      <button
+                                        className="btn btn-sm"
+                                        onClick={() => handleCheckIn(p.id || p.bookingId)}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
+                                      >
+                                        <ArrowRight size={14} /> Nhận phòng
+                                      </button>
+                                    )}
+                                    {st === 'checked_in' && (
+                                      <button
+                                        className="btn btn-sm"
+                                        onClick={() => handleCheckOut(p.id || p.bookingId)}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
+                                      >
+                                        <LogOut size={14} /> Trả phòng
+                                      </button>
+                                    )}
+                                    {user && user.roleId !== 4 && (
+                                      <button
+                                        className="btn btn-sm"
+                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
+                                        onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
+                                        onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    )}
                                   </td>
                                 </tr>
                               );
                             })}
                             {validRevenue.length === 0 && (
-                              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Chưa có dữ liệu doanh thu</td></tr>
+                              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>Chưa có dữ liệu doanh thu</td></tr>
                             )}
                             {validRevenue.length > 0 && (
                               <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
-                                <td colSpan="3" style={{ textAlign: 'right', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>TỔNG CỘNG:</td>
+                                <td colSpan="4" style={{ textAlign: 'right', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>TỔNG CỘNG:</td>
                                 <td colSpan="4" style={{ color: '#10b981', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>
                                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalRevenue)}
                                 </td>
@@ -787,6 +900,7 @@ const AdminDashboard = () => {
                             )}
                           </tbody>
                         </table>
+                        </>
                       );
                     })()}
                   </div>
@@ -984,6 +1098,7 @@ const AdminDashboard = () => {
                       <option value="admin">Admin</option>
                       <option value="owner">Owner</option>
                       <option value="customer">Customer</option>
+                      <option value="staff">Staff</option>
                     </select>
                   </div>
                 </div>
@@ -1006,14 +1121,15 @@ const AdminDashboard = () => {
                           if (filterUser === 'admin') return u.role_id === 1;
                           if (filterUser === 'owner') return u.role_id === 2;
                           if (filterUser === 'customer') return u.role_id === 3;
+                          if (filterUser === 'staff') return u.role_id === 4;
                           return true;
                         }).map(u => (
                           <tr key={u.id} className={u.is_blocked ? 'text-muted' : ''}>
                             <td>#{u.id}</td>
                             <td><strong>{u.email}</strong></td>
                             <td>
-                              <span className="status-badge" style={{ backgroundColor: u.role_id === 1 ? '#e11d48' : (u.role_id === 2 ? '#2563eb' : '#4b5563'), color: 'white' }}>
-                                {u.role_id === 1 ? 'Admin' : (u.role_id === 2 ? 'Owner' : 'Customer')}
+                              <span className="status-badge" style={{ backgroundColor: u.role_id === 1 ? '#e11d48' : (u.role_id === 2 ? '#2563eb' : (u.role_id === 4 ? '#059669' : '#4b5563')), color: 'white' }}>
+                                {u.role_id === 1 ? 'Admin' : (u.role_id === 2 ? 'Owner' : (u.role_id === 4 ? 'Staff' : 'Customer'))}
                               </span>
                             </td>
                             <td>
@@ -1262,7 +1378,7 @@ const AdminDashboard = () => {
                     }).map(home => (
                       <div className="homestay-card" key={home.id}>
                         <div className="user-info">
-                          <strong>{home.name}</strong>
+                          <strong><span style={{ color: '#0ea5e9', marginRight: '6px' }}>#{home.id}</span> {home.name}</strong>
                           <span className="contact-meta"><MapPin size={14} /> {home.address}</span>
                         </div>
                         <div className="actions">

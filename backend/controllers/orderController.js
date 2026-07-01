@@ -25,7 +25,8 @@ exports.getBookings = async (req, res) => {
                 b.created_at,
                 rt.name as roomName,
                 bd.check_in_datetime,
-                bd.check_out_datetime
+                bd.check_out_datetime,
+                b.guest_cccd
             FROM bookings b
             JOIN hotels h ON b.hotel_id = h.id
             JOIN users u ON b.user_id = u.id
@@ -39,6 +40,9 @@ exports.getBookings = async (req, res) => {
         if (roleId === 2) {
             query += ` WHERE h.owner_id = @ownerId`;
             request.input('ownerId', sql.Int, userId);
+        } else if (roleId === 4) {
+            query += ` WHERE b.hotel_id = @hotelId`;
+            request.input('hotelId', sql.Int, req.user.hotelId);
         }
 
         query += ` ORDER BY b.created_at DESC`;
@@ -400,13 +404,22 @@ exports.checkInBooking = async (req, res) => {
             return res.status(404).json({ error: 'Không tìm thấy đơn đặt phòng!' });
         }
         
+        const { cccd } = req.body; // Lấy CCCD từ request body
+
         if (checkRes.recordset[0].booking_status !== 'confirmed') {
             return res.status(400).json({ error: 'Đơn hàng không ở trạng thái hợp lệ để nhận phòng!' });
         }
 
-        await pool.request()
-            .input('bId', sql.Int, bookingId)
-            .query("UPDATE bookings SET booking_status = 'checked_in' WHERE id = @bId");
+        const updateReq = pool.request();
+        updateReq.input('bId', sql.Int, bookingId);
+        let updateQuery = "UPDATE bookings SET booking_status = 'checked_in'";
+        if (cccd) {
+            updateQuery += ", guest_cccd = @cccd";
+            updateReq.input('cccd', sql.VarChar, cccd);
+        }
+        updateQuery += " WHERE id = @bId";
+
+        await updateReq.query(updateQuery);
 
         // Cập nhật trạng thái phòng thành 'occupied' (đã có khách)
         const roomRes = await pool.request()
