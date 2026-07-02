@@ -106,7 +106,9 @@ const Invoice = () => {
               </div>
               <div className="detail-item">
                 <span className="detail-label"><HomeIcon size={14} /> Loại phòng</span>
-                <span className="detail-value">{invoice.room_type}</span>
+                <span className="detail-value">
+                  {invoice.room_type}
+                </span>
               </div>
             </div>
           </div>
@@ -117,7 +119,19 @@ const Invoice = () => {
               <p className="date-time">
                 {invoice.check_in_datetime ? new Date(invoice.check_in_datetime).toLocaleDateString('vi-VN') : 'Đang cập nhật'}
               </p>
-              <p className="time"><Clock size={14} /> 14:00</p>
+              <p className="time">
+                <Clock size={14} /> 
+                {(() => {
+                  if (!invoice.check_in_datetime || !invoice.created_at) return '14:00';
+                  const checkInDate = new Date(invoice.check_in_datetime);
+                  const createdDate = new Date(invoice.created_at);
+                  // Nếu đặt phòng để nhận ngay trong ngày hôm nay VÀ thời điểm đặt đã qua 14:00
+                  if (checkInDate.toDateString() === createdDate.toDateString() && createdDate.getHours() >= 14) {
+                    return createdDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                  }
+                  return '14:00';
+                })()}
+              </p>
             </div>
             
             <div className="invoice-section date-box">
@@ -130,9 +144,19 @@ const Invoice = () => {
           </div>
 
           <div className="invoice-summary mt-4">
-            <div className="summary-row grand-total">
-              <span>Tổng thanh toán</span>
-              <span>{invoice.total_amount?.toLocaleString('vi-VN')} ₫</span>
+            <div className="summary-row" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '1.1rem', color: '#64748b' }}>Tổng giá trị đơn hàng</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{invoice.total_amount?.toLocaleString('vi-VN')} ₫</span>
+            </div>
+            
+            <div className="summary-row deposit-row" style={{ backgroundColor: '#fffbeb', color: '#b45309', padding: '12px', borderRadius: '8px', border: '1px solid #fcd34d', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 600 }}>Số tiền bắt buộc thanh toán cọc ngay</span>
+              <span style={{ fontSize: '1.3rem', fontWeight: 700 }}>{invoice.deposit_amount ? invoice.deposit_amount.toLocaleString('vi-VN') : invoice.total_amount?.toLocaleString('vi-VN')} ₫</span>
+            </div>
+
+            <div className="summary-row remaining-row" style={{ backgroundColor: '#f0fdf4', color: '#166534', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 600 }}>Số tiền mặt cần chuẩn bị khi nhận phòng</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>{invoice.remaining_amount ? invoice.remaining_amount.toLocaleString('vi-VN') : '0'} ₫</span>
             </div>
           </div>
 

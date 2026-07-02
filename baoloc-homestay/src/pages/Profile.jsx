@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { User, History, LogOut, Star, CheckCircle, AlertCircle, AlertTriangle, Clock, CreditCard, Trash2, Edit, Receipt } from 'lucide-react';
 import axios from 'axios';
 import './Profile.css';
@@ -13,7 +13,8 @@ const formatLocalDateOnly = (dateString) => {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('history');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'history');
   const [reviewingBookingId, setReviewingBookingId] = useState(null);
   const [reviewScore, setReviewScore] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -21,6 +22,12 @@ const Profile = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
 
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, bookingId: null });
   const [earlyCheckoutDialog, setEarlyCheckoutDialog] = useState({ isOpen: false, bookingId: null });
@@ -328,7 +335,7 @@ const Profile = () => {
                               style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, borderRadius: '8px', padding: '6px 16px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.15)', transition: 'all 0.2s', border: 'none', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white' }}
                               onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                               onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
-                              onClick={() => navigate(`/checkout/${booking.id}?amount=${booking.total}&hotel=${booking.homestay}`)}
+                              onClick={() => navigate(`/checkout/${booking.id}?amount=${booking.deposit || booking.total}&total=${booking.total}&hotel=${booking.homestay}`)}
                             >
                               <CreditCard size={16} /> Thanh toán ngay
                             </button>

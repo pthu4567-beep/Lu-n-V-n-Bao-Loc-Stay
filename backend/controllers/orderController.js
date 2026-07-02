@@ -14,6 +14,8 @@ exports.getBookings = async (req, res) => {
                 u.email as userEmail, 
                 h.name as homestayName, 
                 b.total_amount as amount, 
+                b.deposit_amount,
+                b.remaining_amount,
                 b.refund_amount,
                 CASE 
                     WHEN b.booking_status = 'refund_pending' THEN 'refund_pending'
@@ -65,17 +67,31 @@ exports.verifyPayment = async (req, res) => {
         request.input('bookingId', sql.Int, bookingId);
         request.input('adminId', sql.Int, adminId);
 
+        // Check if there is remaining_amount
+        const bookingReq = pool.request();
+        bookingReq.input('bookingId', sql.Int, bookingId);
+        const bookingRes = await bookingReq.query(`SELECT remaining_amount FROM bookings WHERE id = @bookingId`);
+        const b = bookingRes.recordset[0];
+        
+        let newBookingStatus = 'confirmed';
+        let newPaymentStatus = 'paid';
+
+        if (b && b.remaining_amount > 0) {
+            newBookingStatus = 'deposited';
+            newPaymentStatus = 'partially_paid';
+        }
+
         // Update booking status
         await request.query(`
             UPDATE bookings 
-            SET booking_status = 'confirmed' 
+            SET booking_status = '${newBookingStatus}' 
             WHERE id = @bookingId
         `);
 
         // Update payment status
         await request.query(`
             UPDATE payments 
-            SET payment_status = 'paid', verified_by = @adminId 
+            SET payment_status = '${newPaymentStatus}', verified_by = @adminId 
             WHERE booking_id = @bookingId
         `);
 

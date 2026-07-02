@@ -245,13 +245,13 @@ const Home = () => {
 
                   {showDropdown && (
                     <div className="dropdown-menu">
-                      {user && (user.roleId === 1 || user.roleId === 2) && (
+                      {user && [1, 2, 4].includes(parseInt(user.roleId || user.role_id)) && (
                         <button className="dropdown-item text-primary" onClick={() => navigate('/admin')} style={{ fontWeight: 'bold' }}>
                           <User size={16} /> Trang quản lý
                         </button>
                       )}
-                      <button className="dropdown-item" onClick={() => navigate('/profile')}><User size={16} /> Hồ sơ cá nhân</button>
-                      <button className="dropdown-item" onClick={() => navigate('/profile')}><History size={16} /> Lịch sử đặt phòng</button>
+                      <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'profile' } })}><User size={16} /> Hồ sơ cá nhân</button>
+                      <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'history' } })}><History size={16} /> Lịch sử đặt phòng</button>
                       <button className="dropdown-item text-danger" onClick={() => {
                         sessionStorage.removeItem('isLoggedIn');
                         sessionStorage.removeItem('user');

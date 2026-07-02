@@ -177,7 +177,7 @@ app.get('/api/homestays/:id', async (req, res) => {
 // API 3: Đặt phòng (Có chống trùng lặp & Chống overbooking tuyệt đối)
 // ==========================================
 app.post('/api/bookings', verifyToken, async (req, res) => {
-    const { hotelId, roomTypeId, checkIn, checkOut, totalAmount, guestCount } = req.body;
+    const { hotelId, rooms, checkIn, checkOut, totalAmount, guestCount } = req.body;
     const userId = req.user.id; // Lấy an toàn từ token JWT đã xác thực
     try {
         const pool = await poolPromise;
@@ -186,74 +186,98 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
         const transaction = new sql.Transaction(pool);
         await transaction.begin();
         try {
-            // 1. Tìm 1 phòng trống trong khoảng ngày đặt (UPDLOCK, ROWLOCK ngăn overbooking)
-            const findReq = new sql.Request(transaction);
-            findReq.input('rtId', sql.Int, roomTypeId);
-            findReq.input('cin', sql.DateTime, new Date(checkIn));
-            findReq.input('cout', sql.DateTime, new Date(checkOut));
-            const findRes = await findReq.query(`
-                SELECT TOP 1 id FROM rooms WITH (UPDLOCK, ROWLOCK)
-                WHERE room_type_id = @rtId 
-                  AND status = 'available'
-                  AND id NOT IN (
-                      SELECT bd.room_id 
-                      FROM booking_details bd
-                      JOIN bookings b ON bd.booking_id = b.id
-                      WHERE b.booking_status NOT IN ('cancelled', 'rejected')
-                        AND bd.check_in_datetime < @cout
-                        AND bd.check_out_datetime > @cin
-                  )
-            `);
+            let allRoomIdsToBook = [];
+            
+            // 1. Tìm phòng trống cho TỪNG loại phòng được chọn
+            for (let rReq of rooms) {
+                const findReq = new sql.Request(transaction);
+                findReq.input('rtId', sql.Int, rReq.roomTypeId);
+                findReq.input('cin', sql.DateTime, new Date(checkIn));
+                findReq.input('cout', sql.DateTime, new Date(checkOut));
+                const rCount = rReq.count;
+                
+                const findRes = await findReq.query(`
+                    SELECT TOP (${rCount}) id FROM rooms WITH (UPDLOCK, ROWLOCK)
+                    WHERE room_type_id = @rtId 
+                      AND status = 'available'
+                      AND id NOT IN (
+                          SELECT bd.room_id 
+                          FROM booking_details bd
+                          JOIN bookings b ON bd.booking_id = b.id
+                          WHERE b.booking_status NOT IN ('cancelled', 'rejected')
+                            AND bd.check_in_datetime < @cout
+                            AND bd.check_out_datetime > @cin
+                      )
+                `);
 
-            if (findRes.recordset.length === 0) {
-                await transaction.rollback();
-                return res.status(400).json({ error: 'Không còn phòng trống loại này trong khoảng thời gian đã chọn!' });
+                if (findRes.recordset.length < rCount) {
+                    await transaction.rollback();
+                    return res.status(400).json({ error: 'Không đủ số lượng phòng trống cho một trong các loại phòng đã chọn!' });
+                }
+                
+                findRes.recordset.forEach(r => {
+                    allRoomIdsToBook.push(r.id);
+                });
             }
-            const roomId = findRes.recordset[0].id;
+
+            let depositAmount = totalAmount;
+            let remainingAmount = 0;
+            if (totalAmount > 0) {
+                depositAmount = totalAmount * 0.3;
+                remainingAmount = totalAmount - depositAmount;
+            }
 
             // 2. Tạo đơn đặt phòng
             const bookReq = new sql.Request(transaction);
             bookReq.input('uId', sql.Int, userId);
             bookReq.input('hId', sql.Int, hotelId);
             bookReq.input('total', sql.Decimal(18, 2), totalAmount);
+            bookReq.input('deposit', sql.Decimal(18, 2), depositAmount);
+            bookReq.input('remaining', sql.Decimal(18, 2), remainingAmount);
             bookReq.input('guestCount', sql.Int, guestCount || 1);
             const bookRes = await bookReq.query(`
-                INSERT INTO bookings (user_id, hotel_id, total_amount, booking_status, guest_count, created_at)
+                INSERT INTO bookings (user_id, hotel_id, total_amount, deposit_amount, remaining_amount, booking_status, guest_count, created_at)
                 OUTPUT INSERTED.id
-                VALUES (@uId, @hId, @total, 'pending_payment', @guestCount, GETDATE())
+                VALUES (@uId, @hId, @total, @deposit, @remaining, 'pending_payment', @guestCount, GETDATE())
             `);
             const newBookingId = bookRes.recordset[0].id;
 
-            // 3. Tạo chi tiết đơn (sửa lỗi thiếu booking_type)
-            const detailReq = new sql.Request(transaction);
-            detailReq.input('bId', sql.Int, newBookingId);
-            detailReq.input('rId', sql.Int, roomId);
-            detailReq.input('cin', sql.DateTime, new Date(checkIn));
-            detailReq.input('cout', sql.DateTime, new Date(checkOut));
-            detailReq.input('price', sql.Decimal(18, 2), totalAmount);
-            await detailReq.query(`
-                INSERT INTO booking_details (booking_id, room_id, booking_type, check_in_datetime, check_out_datetime, price)
-                VALUES (@bId, @rId, 'standard', @cin, @cout, @price)
-            `);
+            // 3. Tạo chi tiết đơn (chia đều giá cho các phòng để đơn giản)
+            const pricePerRoom = totalAmount / allRoomIdsToBook.length;
+            for (let rId of allRoomIdsToBook) {
+                const detailReq = new sql.Request(transaction);
+                detailReq.input('bId', sql.Int, newBookingId);
+                detailReq.input('rId', sql.Int, rId);
+                detailReq.input('cin', sql.DateTime, new Date(checkIn));
+                detailReq.input('cout', sql.DateTime, new Date(checkOut));
+                detailReq.input('price', sql.Decimal(18, 2), pricePerRoom);
+                await detailReq.query(`
+                    INSERT INTO booking_details (booking_id, room_id, booking_type, check_in_datetime, check_out_datetime, price)
+                    VALUES (@bId, @rId, 'standard', @cin, @cout, @price)
+                `);
+            }
 
             // 4. Tạo bản ghi thanh toán ở trạng thái awaiting_confirmation
             const payReq = new sql.Request(transaction);
             payReq.input('bId', sql.Int, newBookingId);
-            payReq.input('amount', sql.Decimal(18, 2), totalAmount);
+            payReq.input('amount', sql.Decimal(18, 2), depositAmount);
             await payReq.query(`
                 INSERT INTO payments (booking_id, amount, payment_method, payment_status)
                 VALUES (@bId, @amount, 'QR_Transfer', 'awaiting_confirmation')
             `);
 
             await transaction.commit();
-            console.log(`ĐẶT PHÒNG THÀNH CÔNG - Booking #${newBookingId}, Room #${roomId}`);
+            console.log(`ĐẶT PHÒNG THÀNH CÔNG - Booking #${newBookingId}, Rooms: ${allRoomIdsToBook.join(', ')}`);
 
             const io = req.app.get('io');
             if (io) {
-                io.emit('room_update', { hotelId, roomTypeId });
+                // Emit for all room types
+                rooms.forEach(r => {
+                    io.emit('room_update', { hotelId, roomTypeId: r.roomTypeId });
+                });
             }
 
-            res.json({ success: true, bookingId: newBookingId, roomId, message: 'Đặt phòng thành công!' });
+            res.json({ success: true, bookingId: newBookingId, roomId: allRoomIdsToBook[0], depositAmount, remainingAmount, message: 'Đặt phòng thành công!' });
         } catch (txnErr) {
             await transaction.rollback();
             throw txnErr;
@@ -275,7 +299,7 @@ app.get('/api/users/:userId/bookings', async (req, res) => {
         const request = pool.request();
         request.input('userId', sql.Int, parseInt(req.params.userId));
         const result = await request.query(`
-            SELECT b.id, h.name as homestay, rt.name as room, b.created_at as date, b.total_amount as total, b.booking_status as status
+            SELECT b.id, h.name as homestay, rt.name as room, b.created_at as date, b.total_amount as total, b.deposit_amount as deposit, b.booking_status as status
             FROM bookings b
             JOIN hotels h ON b.hotel_id = h.id
             LEFT JOIN booking_details bd ON b.id = bd.booking_id
@@ -491,14 +515,24 @@ app.get('/api/bookings/:id/invoice', verifyToken, async (req, res) => {
 
         const result = await request.query(`
             SELECT TOP 1
-                b.id as booking_id, b.total_amount, b.booking_status, b.created_at,
+                b.id as booking_id, b.total_amount, b.deposit_amount, b.remaining_amount, b.booking_status, b.created_at,
                 u.email as guest_email, u.phone as guest_phone,
                 SUBSTRING(u.email, 1, CHARINDEX('@', u.email) - 1) as guest_name,
                 h.name as homestay_name, h.address as homestay_address,
                 ou.email as owner_email, ou.phone as owner_phone,
                 SUBSTRING(ou.email, 1, CHARINDEX('@', ou.email) - 1) as owner_name,
-                bd.check_in_datetime, bd.check_out_datetime,
-                COALESCE(rt.name, N'Phòng Tiêu Chuẩn') as room_type
+                bd.check_in_datetime as check_in_datetime, bd.check_out_datetime as check_out_datetime,
+                (
+                    SELECT STRING_AGG(rt.name + ' (x' + CAST(c.cnt AS VARCHAR) + ')', ', ')
+                    FROM (
+                        SELECT r.room_type_id, COUNT(*) as cnt
+                        FROM booking_details inner_bd
+                        JOIN rooms r ON inner_bd.room_id = r.id
+                        WHERE inner_bd.booking_id = b.id
+                        GROUP BY r.room_type_id
+                    ) c
+                    JOIN room_types rt ON c.room_type_id = rt.id
+                ) as room_type
             FROM bookings b
             JOIN users u ON b.user_id = u.id
             JOIN hotels h ON b.hotel_id = h.id

@@ -82,15 +82,37 @@ const Detail = () => {
   const { id } = useParams();
   
   const [hotel, setHotel] = useState(null);
-  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [selectedRooms, setSelectedRooms] = useState({}); // { roomTypeId: count }
   const [loading, setLoading] = useState(true);
   const [viewRoomDetail, setViewRoomDetail] = useState(null);
 
-  // Form Đặt phòng
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guestCount, setGuestCount] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRoomCountChange = (roomId, count, available) => {
+    setSelectedRooms(prev => {
+      const updated = { ...prev };
+      if (count <= 0) {
+        delete updated[roomId];
+      } else if (count <= available) {
+        updated[roomId] = count;
+      }
+      return updated;
+    });
+  };
+
+  const totalCapacity = hotel ? Object.keys(selectedRooms).reduce((acc, roomId) => {
+    const room = hotel.rooms.find(r => String(r.id) === String(roomId));
+    return acc + (room ? room.capacity * selectedRooms[roomId] : 0);
+  }, 0) : 0;
+
+  useEffect(() => {
+    if (totalCapacity > 0 && guestCount > totalCapacity) {
+      setGuestCount(totalCapacity);
+    }
+  }, [totalCapacity, guestCount]);
 
   // Gọi API lấy thông tin homestay (Có hỗ trợ cập nhật số phòng trống theo ngày chọn)
   useEffect(() => {
@@ -132,8 +154,8 @@ const Detail = () => {
   }, [id, checkIn, checkOut]);
   
   const handleBooking = async () => {
-    if (!selectedRoom) {
-      await showAlert('Chưa chọn phòng', 'Vui lòng chọn loại phòng trước khi tiến hành đặt!', 'warning');
+    if (Object.keys(selectedRooms).length === 0) {
+      await showAlert('Chưa chọn phòng', 'Vui lòng chọn ít nhất một loại phòng trước khi tiến hành đặt!', 'warning');
       return;
     }
     if (!checkIn || !checkOut) {
@@ -152,7 +174,21 @@ const Detail = () => {
     // Tính tổng số ngày lưu trú
     const diffTime = Math.abs(outDate - inDate);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const totalAmount = diffDays * selectedRoom.price;
+    
+    let baseAmount = 0;
+    Object.keys(selectedRooms).forEach(roomId => {
+        const r = hotel.rooms.find(x => String(x.id) === String(roomId));
+        if (r) {
+            baseAmount += diffDays * r.price * selectedRooms[roomId];
+        }
+    });
+    
+    // Áp dụng giảm giá
+    let discountRate = 0;
+    if (guestCount >= 10 && guestCount <= 15) discountRate = 0.10;
+    else if (guestCount > 15) discountRate = 0.15;
+    
+    const totalAmount = baseAmount * (1 - discountRate);
 
     const storedUser = sessionStorage.getItem('user');
     const token = sessionStorage.getItem('token');
@@ -167,7 +203,7 @@ const Detail = () => {
         const payload = {
             userId: loggedInUser.id, 
             hotelId: hotel.id,
-            roomTypeId: selectedRoom.id,
+            rooms: Object.keys(selectedRooms).map(roomId => ({ roomTypeId: parseInt(roomId), count: selectedRooms[roomId] })),
             checkIn: checkIn,
             checkOut: checkOut,
             totalAmount: totalAmount,
@@ -180,8 +216,14 @@ const Detail = () => {
             }
         });
         if (res.data.success) {
+            // Lấy tên các phòng đã chọn để hiển thị ngắn gọn
+            const roomNames = Object.keys(selectedRooms)
+              .map(roomId => hotel.rooms.find(r => String(r.id) === String(roomId))?.type)
+              .filter(Boolean)
+              .join(', ');
+              
             // Chuyển hướng sang trang thanh toán kèm thông tin
-            navigate(`/checkout/${res.data.bookingId}?amount=${totalAmount}&hotel=${hotel.name}&room=${selectedRoom.type}`);
+            navigate(`/checkout/${res.data.bookingId}?amount=${res.data.depositAmount}&total=${totalAmount}&hotel=${hotel.name}&room=${roomNames}`);
         }
     } catch (err) {
         const errorMsg = err.response?.data?.error || "Có lỗi xảy ra khi tạo đơn đặt phòng";
@@ -248,7 +290,7 @@ const Detail = () => {
             <h2>Loại phòng hiện có</h2>
             <div className="rooms-list">
               {hotel.rooms.map(room => (
-                <div className={`room-card ${selectedRoom?.id === room.id ? 'selected' : ''}`} key={room.id} style={{ display: 'block', padding: '20px' }}>
+                <div className={`room-card ${selectedRooms[room.id] > 0 ? 'selected' : ''}`} key={room.id} style={{ display: 'block', padding: '20px' }}>
                   <h3 style={{ marginBottom: '15px', fontSize: '1.25rem' }}>{room.type}</h3>
                   
                   {/* KHU VỰC ẢNH PHÒNG - MỤC ĐÍCH BẢO VỆ LUẬN VĂN: 
@@ -281,14 +323,27 @@ const Detail = () => {
                         >
                           Xem chi tiết
                         </button>
-                        <button 
-                          className={`btn ${selectedRoom?.id === room.id ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ padding: '10px 20px', fontWeight: 600 }}
-                          onClick={() => room.available > 0 && setSelectedRoom(room)}
-                          disabled={room.available === 0}
-                        >
-                          {room.available === 0 ? 'Hết phòng' : selectedRoom?.id === room.id ? 'Đã chọn' : 'Chọn phòng này'}
-                        </button>
+                        
+                        {/* Thay thế nút chọn bằng điều khiển tăng/giảm */}
+                        <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                          <button 
+                            style={{ padding: '10px 15px', border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}
+                            onClick={() => handleRoomCountChange(room.id, (selectedRooms[room.id] || 0) - 1, room.available)}
+                            disabled={!selectedRooms[room.id] || selectedRooms[room.id] <= 0}
+                          >
+                            -
+                          </button>
+                          <span style={{ padding: '0 15px', fontWeight: 600, minWidth: '30px', textAlign: 'center' }}>
+                            {selectedRooms[room.id] || 0}
+                          </span>
+                          <button 
+                            style={{ padding: '10px 15px', border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}
+                            onClick={() => handleRoomCountChange(room.id, (selectedRooms[room.id] || 0) + 1, room.available)}
+                            disabled={(selectedRooms[room.id] || 0) >= room.available || room.available === 0}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -340,25 +395,56 @@ const Detail = () => {
                 <input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>Số lượng khách</label>
-                <input type="number" min="1" max={selectedRoom ? selectedRoom.capacity : 10} value={guestCount} onChange={e => setGuestCount(parseInt(e.target.value))} />
+                <label>Số lượng khách {totalCapacity > 0 ? `(Tối đa: ${totalCapacity})` : ''}</label>
+                <input 
+                  type="number" 
+                  min="1" 
+                  max={totalCapacity > 0 ? totalCapacity : 50} 
+                  value={guestCount} 
+                  onChange={e => {
+                    let val = parseInt(e.target.value) || 1;
+                    if (totalCapacity > 0 && val > totalCapacity) {
+                      val = totalCapacity;
+                    }
+                    setGuestCount(val);
+                  }} 
+                />
               </div>
-              
               <div className="widget-summary">
-                <div className="summary-row">
-                  <span>Loại phòng:</span>
-                  <strong>{selectedRoom ? selectedRoom.type : 'Chưa chọn'}</strong>
-                </div>
-                <div className="summary-row total">
-                  <span>Giá 1 đêm:</span>
-                  <strong>{selectedRoom ? `${selectedRoom.price.toLocaleString('vi-VN')} ₫` : '0 ₫'}</strong>
-                </div>
+                {Object.keys(selectedRooms).length > 0 ? (
+                  Object.keys(selectedRooms).map(roomId => {
+                    const r = hotel.rooms.find(x => String(x.id) === String(roomId));
+                    return r ? (
+                      <div className="summary-row" key={roomId}>
+                        <span>{r.type}:</span>
+                        <strong>{selectedRooms[roomId]} phòng</strong>
+                      </div>
+                    ) : null;
+                  })
+                ) : (
+                  <div className="summary-row">
+                    <span>Phòng đã chọn:</span>
+                    <strong>Chưa có</strong>
+                  </div>
+                )}
+                {guestCount >= 10 && guestCount <= 15 && (
+                  <div className="summary-row total" style={{color: '#16a34a'}}>
+                    <span>Giảm giá nhóm (10-15 người):</span>
+                    <strong>-10%</strong>
+                  </div>
+                )}
+                {guestCount > 15 && (
+                  <div className="summary-row total" style={{color: '#16a34a'}}>
+                    <span>Giảm giá nhóm (Trên 15 người):</span>
+                    <strong>-15%</strong>
+                  </div>
+                )}
               </div>
 
               <button 
                 className="btn btn-primary w-full cta-btn"
                 onClick={handleBooking}
-                disabled={isSubmitting || !selectedRoom}
+                disabled={isSubmitting || Object.keys(selectedRooms).length === 0}
               >
                 {isSubmitting ? 'Đang xử lý...' : 'Tiến hành Đặt phòng'}
               </button>

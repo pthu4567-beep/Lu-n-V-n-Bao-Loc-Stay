@@ -105,6 +105,16 @@
   font-weight: 800;
 }
 
+.sidebar-heading {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-tertiary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1rem 1.25rem 0.25rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
 .dashboard-nav {
   display: flex;
   flex-direction: column;

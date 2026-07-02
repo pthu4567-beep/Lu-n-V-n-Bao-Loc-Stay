@@ -11,6 +11,7 @@ const Checkout = () => {
   const [searchParams] = useSearchParams();
   
   const amount = parseInt(searchParams.get('amount')) || 0;
+  const total = parseInt(searchParams.get('total')) || amount;
   const hotelName = searchParams.get('hotel') || 'Homestay';
   const roomName = searchParams.get('room') || 'Phòng Tiêu Chuẩn';
 
@@ -87,15 +88,15 @@ const Checkout = () => {
 
             <div className="total-section">
               <div className="summary-item">
-                <span>Tạm tính</span>
-                <span>{amount.toLocaleString('vi-VN')} ₫</span>
+                <span>Tổng tiền phòng</span>
+                <span>{total.toLocaleString('vi-VN')} ₫</span>
               </div>
               <div className="summary-item">
                 <span>Giảm giá</span>
                 <span>0 ₫</span>
               </div>
               <div className="summary-item grand-total">
-                <span>Tổng thanh toán</span>
+                <span>Số tiền cần cọc</span>
                 <strong>{amount.toLocaleString('vi-VN')} ₫</strong>
               </div>
             </div>

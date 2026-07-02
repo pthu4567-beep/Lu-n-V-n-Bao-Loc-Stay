@@ -67,6 +67,10 @@ const AdminDashboard = () => {
   const [showEditRoomModal, setShowEditRoomModal] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
 
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [checkInBookingId, setCheckInBookingId] = useState(null);
+  const [checkInCCCD, setCheckInCCCD] = useState('');
+
 
   // Filter States
   const [filterPayment, setFilterPayment] = useState('all');
@@ -214,23 +218,29 @@ const AdminDashboard = () => {
   };
 
   // Check-in (Nhận phòng)
-  const handleCheckIn = async (bookingId) => {
+  const handleCheckIn = (bookingId) => {
+    setCheckInBookingId(bookingId);
+    setCheckInCCCD('');
+    setShowCheckInModal(true);
+  };
+
+  const confirmCheckIn = async () => {
     const token = sessionStorage.getItem('token');
     if (!token) return;
 
-    const cccd = prompt('Vui lòng nhập số Căn cước công dân (CCCD) của khách hàng để nhận phòng (Bắt buộc):');
-    if (!cccd) {
+    if (!checkInCCCD.trim()) {
       showToast('Vui lòng nhập số Căn cước công dân để nhận phòng!', 'error');
       return;
     }
 
     try {
-      const res = await axios.put(`http://localhost:5000/api/admin/orders/bookings/${bookingId}/checkin`, { cccd }, {
+      const res = await axios.put(`http://localhost:5000/api/admin/orders/bookings/${checkInBookingId}/checkin`, { cccd: checkInCCCD }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
         showToast(res.data.message, 'success');
-        setPayments(payments.map(p => (p.bookingId || p.id) === bookingId ? { ...p, status: 'checked_in', guest_cccd: cccd } : p));
+        setPayments(payments.map(p => (p.bookingId || p.id) === checkInBookingId ? { ...p, status: 'checked_in', guest_cccd: checkInCCCD } : p));
+        setShowCheckInModal(false);
       }
     } catch (err) {
       showToast(err.response?.data?.error || 'Lỗi khi xác nhận nhận phòng', 'error');
@@ -594,21 +604,33 @@ const AdminDashboard = () => {
           <span className="text-gradient">Bảo Lộc Stay</span>
         </div>
         <nav className="dashboard-nav">
+          <div className="sidebar-heading">Thống kê & Tổng quan</div>
           <button
             className={`nav-btn ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
             <PieChart size={18} /> Tổng quan
           </button>
+          
+          <div className="sidebar-heading">Quản lý Đơn hàng</div>
           <button
             className={`nav-btn ${activeTab === 'revenue' ? 'active' : ''}`}
             onClick={() => setActiveTab('revenue')}
           >
             <DollarSign size={18} /> Quản lý Đơn & Doanh thu
           </button>
+          {user.roleId === 1 && (
+            <button
+              className={`nav-btn ${activeTab === 'payments' ? 'active' : ''}`}
+              onClick={() => setActiveTab('payments')}
+            >
+              <ShieldCheck size={18} /> Duyệt thanh toán VietQR
+            </button>
+          )}
           
           {user.roleId !== 4 && (
             <>
+              <div className="sidebar-heading">Quản lý Lưu trú</div>
               <button
                 className={`nav-btn ${activeTab === 'homestays' ? 'active' : ''}`}
                 onClick={() => setActiveTab('homestays')}
@@ -630,34 +652,31 @@ const AdminDashboard = () => {
             </>
           )}
 
+          <div className="sidebar-heading">Khách hàng & Đánh giá</div>
           <button
             className={`nav-btn ${activeTab === 'reviews' ? 'active' : ''}`}
             onClick={() => setActiveTab('reviews')}
           >
             <Star size={18} /> Quản lý Đánh giá
           </button>
-          {user.roleId === 1 && (
-            <>
-              <button
-                className={`nav-btn ${activeTab === 'users' ? 'active' : ''}`}
-                onClick={() => setActiveTab('users')}
-              >
-                <Users size={18} /> Quản lý Tài khoản
-              </button>
-              <button
-                className={`nav-btn ${activeTab === 'payments' ? 'active' : ''}`}
-                onClick={() => setActiveTab('payments')}
-              >
-                <ShieldCheck size={18} /> Duyệt thanh toán VietQR
-              </button>
-            </>
-          )}
           <button
             className={`nav-btn ${activeTab === 'contacts' ? 'active' : ''}`}
             onClick={() => setActiveTab('contacts')}
           >
             <MessageSquare size={18} /> Tin nhắn hỗ trợ
           </button>
+
+          {user.roleId === 1 && (
+            <>
+              <div className="sidebar-heading">Hệ thống</div>
+              <button
+                className={`nav-btn ${activeTab === 'users' ? 'active' : ''}`}
+                onClick={() => setActiveTab('users')}
+              >
+                <Users size={18} /> Quản lý Tài khoản
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -680,7 +699,7 @@ const AdminDashboard = () => {
             <h1>Admin Dashboard</h1>
           </div>
           <div className="topbar-right">
-            <span className="user-greeting"><span className="status-indicator"></span> Xin chào, <strong>Quản trị viên</strong></span>
+            <span className="user-greeting"><span className="status-indicator"></span> Xin chào, <strong>{user.full_name || user.email || 'Quản trị viên'}</strong></span>
             <button className="btn-topbar" onClick={() => navigate('/')}>
               <HomeIcon size={16} /> Trang Chủ
             </button>
@@ -833,7 +852,7 @@ const AdminDashboard = () => {
                               <th>Số tiền (VNĐ)</th>
                               <th>Trạng thái</th>
                               <th>Ngày tạo</th>
-                              <th style={{ textAlign: 'center' }}>Hành động</th>
+                              {user && user.roleId !== 1 && <th style={{ textAlign: 'center' }}>Hành động</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -854,36 +873,38 @@ const AdminDashboard = () => {
                                     </span>
                                   </td>
                                   <td>{p.created_at ? formatLocalDateOnly(p.created_at) : ''}</td>
-                                  <td style={{ textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                    {(st === 'paid' || st === 'confirmed') && (
-                                      <button
-                                        className="btn btn-sm"
-                                        onClick={() => handleCheckIn(p.id || p.bookingId)}
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
-                                      >
-                                        <ArrowRight size={14} /> Nhận phòng
-                                      </button>
-                                    )}
-                                    {st === 'checked_in' && (
-                                      <button
-                                        className="btn btn-sm"
-                                        onClick={() => handleCheckOut(p.id || p.bookingId)}
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
-                                      >
-                                        <LogOut size={14} /> Trả phòng
-                                      </button>
-                                    )}
-                                    {user && user.roleId !== 4 && (
-                                      <button
-                                        className="btn btn-sm"
-                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
-                                        onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
-                                        onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    )}
-                                  </td>
+                                  {user && user.roleId !== 1 && (
+                                    <td style={{ textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                      {(st === 'paid' || st === 'confirmed') && (
+                                        <button
+                                          className="btn btn-sm"
+                                          onClick={() => handleCheckIn(p.id || p.bookingId)}
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
+                                        >
+                                          <ArrowRight size={14} /> Nhận phòng
+                                        </button>
+                                      )}
+                                      {st === 'checked_in' && (
+                                        <button
+                                          className="btn btn-sm"
+                                          onClick={() => handleCheckOut(p.id || p.bookingId)}
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
+                                        >
+                                          <LogOut size={14} /> Trả phòng
+                                        </button>
+                                      )}
+                                      {user && user.roleId !== 4 && (
+                                        <button
+                                          className="btn btn-sm"
+                                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
+                                          onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
+                                          onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
+                                      )}
+                                    </td>
+                                  )}
                                 </tr>
                               );
                             })}
@@ -985,6 +1006,7 @@ const AdminDashboard = () => {
                               <td>{pay.homestayName || pay.hotel_name || 'N/A'}</td>
                               <td>
                                 <span className="price-tag">{amount.toLocaleString('vi-VN')} ₫</span>
+
                                 {payStatus === 'refund_pending' && refundAmount > 0 && (
                                   <div style={{ color: '#ef4444', fontWeight: 'bold', marginTop: '4px', fontSize: '0.9rem' }}>
                                     Hoàn: {refundAmount.toLocaleString('vi-VN')} ₫
@@ -1001,15 +1023,16 @@ const AdminDashboard = () => {
                               <td>
                                 <div style={{ display: 'grid', gridTemplateColumns: '130px 100px', gap: '0.5rem', alignItems: 'center', justifyContent: 'center' }}>
                                   <div style={{ textAlign: 'right' }}>
-                                    {payStatus === 'awaiting_confirmation' && (
+                                    {(payStatus === 'awaiting_confirmation' || payStatus === 'pending_payment') && (
                                       <button
                                         className="btn btn-sm action-btn"
                                         onClick={() => handleVerifyPayment(bId)}
                                         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, borderRadius: '8px', padding: '6px 12px', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.15)', transition: 'all 0.2s', border: 'none', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: 'white' }}
                                         onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                                         onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                        title="Xác nhận khách đã thanh toán tiền"
                                       >
-                                        <Check size={14} /> Duyệt đơn
+                                        <Check size={14} /> Duyệt tiền
                                       </button>
                                     )}
                                     {payStatus === 'refund_pending' && (
@@ -1601,29 +1624,56 @@ const AdminDashboard = () => {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', alignItems: 'center' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Trạng thái</span>
-                  <span style={{ fontWeight: 600, color: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' ? '#16a34a' : (selectedOrder.status === 'cancelled' ? '#dc2626' : '#ea580c'), backgroundColor: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' ? '#dcfce7' : (selectedOrder.status === 'cancelled' ? '#fee2e2' : '#ffedd5'), padding: '4px 10px', borderRadius: '6px', fontSize: '0.9rem' }}>
+                  <span style={{ fontWeight: 600, color: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'deposited' ? '#16a34a' : (selectedOrder.status === 'cancelled' ? '#dc2626' : '#ea580c'), backgroundColor: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'deposited' ? '#dcfce7' : (selectedOrder.status === 'cancelled' ? '#fee2e2' : '#ffedd5'), padding: '4px 10px', borderRadius: '6px', fontSize: '0.9rem' }}>
                     {selectedOrder.status === 'completed' ? 'Hoàn tất' :
                       selectedOrder.status === 'checked_in' ? 'Đang sử dụng' :
                         selectedOrder.status === 'checked_out' ? 'Đã trả phòng' :
                           selectedOrder.status === 'cancelled' ? 'Đã hủy' :
                             selectedOrder.status === 'refund_pending' ? 'Yêu cầu trả phòng sớm' :
-                              selectedOrder.status === 'confirmed' ? 'Đã xác nhận' :
-                                selectedOrder.status === 'pending_payment' ? 'Chờ thanh toán' :
-                                  'Chờ Admin duyệt'}
+                              selectedOrder.status === 'deposited' ? 'Đã thanh toán cọc' :
+                                selectedOrder.status === 'confirmed' ? 'Đã xác nhận' :
+                                  selectedOrder.status === 'pending_payment' ? 'Chờ thanh toán' :
+                                    'Chờ Admin duyệt'}
                   </span>
                 </div>
               </div>
 
               {/* Total Amount Box */}
-              <div style={{ marginTop: '1.5rem', background: '#f8fafc', borderRadius: '12px', padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#475569' }}>Tổng thanh toán</span>
-                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0ea5e9' }}>{(selectedOrder.amount || selectedOrder.total_amount || 0).toLocaleString('vi-VN')} ₫</span>
+              <div style={{ marginTop: '1.5rem', background: '#f8fafc', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#475569' }}>Tổng thanh toán</span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0ea5e9' }}>{(selectedOrder.amount || selectedOrder.total_amount || 0).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                {(selectedOrder.deposit_amount !== null && selectedOrder.deposit_amount !== undefined) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#64748b' }}>Đã cọc (30%)</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#059669' }}>{selectedOrder.deposit_amount.toLocaleString('vi-VN')} ₫</span>
+                  </div>
+                )}
+                {(selectedOrder.remaining_amount !== null && selectedOrder.remaining_amount !== undefined && selectedOrder.remaining_amount > 0) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#64748b' }}>Còn lại cần thu</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#dc2626' }}>{selectedOrder.remaining_amount.toLocaleString('vi-VN')} ₫</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '1rem 1.5rem', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: 600, borderRadius: '8px' }} onClick={() => setSelectedOrder(null)}>Đóng chi tiết</button>
+            <div style={{ padding: '1rem 1.5rem', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button className="btn btn-outline" style={{ flex: 1, padding: '0.75rem', fontWeight: 600, borderRadius: '8px' }} onClick={() => setSelectedOrder(null)}>Đóng chi tiết</button>
+              {(selectedOrder.status === 'awaiting_confirmation' || selectedOrder.status === 'pending_payment') && (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ flex: 1, padding: '0.75rem', fontWeight: 600, borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onClick={() => {
+                    handleVerifyPayment(selectedOrder.bookingId || selectedOrder.id);
+                    setSelectedOrder(null);
+                  }}
+                >
+                  <Check size={18} /> Duyệt tiền
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1849,6 +1899,36 @@ const AdminDashboard = () => {
                 <button type="submit" className="btn btn-primary">Lưu thay đổi</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CHECK IN MODAL */}
+      {showCheckInModal && (
+        <div className="modal-overlay" onClick={() => setShowCheckInModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Nhận phòng</h2>
+              <button className="close-btn" onClick={() => setShowCheckInModal(false)}><X size={20} /></button>
+            </div>
+            <div style={{ padding: '10px 0' }}>
+              <div className="form-group">
+                <label>Số Căn cước công dân (CCCD) <span style={{ color: 'red' }}>*</span></label>
+                <input 
+                  type="text" 
+                  required 
+                  value={checkInCCCD} 
+                  onChange={(e) => setCheckInCCCD(e.target.value)} 
+                  className="form-control" 
+                  placeholder="Nhập CCCD của khách hàng"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setShowCheckInModal(false)}>Hủy</button>
+              <button type="button" className="btn btn-primary" onClick={confirmCheckIn}>Xác nhận Nhận phòng</button>
+            </div>
           </div>
         </div>
       )}
