@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Star, Filter } from 'lucide-react';
 import axios from 'axios';
 import Header from '../components/Header';
+import Footer from '../components/Footer';
 import './Search.css';
 
 const Search = () => {
@@ -172,6 +173,7 @@ const Search = () => {
           </main>
         </div>
       </div>
+      <Footer />
     </>
   );
 };

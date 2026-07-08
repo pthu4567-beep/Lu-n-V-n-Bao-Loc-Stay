@@ -43,6 +43,14 @@
   letter-spacing: 0.5px;
 }
 
+.logo-img {
+  height: 60px;
+  /* Chiều cao vừa vặn với thanh header (72px) */
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  /* Giúp lọc bỏ nền trắng của logo, chỉ giữ lại hình */
+}
+
 .main-nav {
   display: none;
 }
@@ -300,12 +308,13 @@
 
 .search-box.sticky-search {
   position: fixed;
-  top: 90px; /* Below the 72px fixed header */
+  top: 90px;
+  /* Below the 72px fixed header */
   left: 50%;
   transform: translateX(-50%);
   z-index: 990;
   width: 90%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   background: white;
   border: 1px solid var(--primary-100);
   animation: slideDownSearch 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -316,6 +325,7 @@
     top: 50px;
     opacity: 0;
   }
+
   to {
     top: 90px;
     opacity: 1;
@@ -599,7 +609,7 @@
   left: 0;
   width: 100%;
   height: 40%;
-  background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.4), transparent);
 }
 
 .favorite-badge {
@@ -724,13 +734,16 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
-  flex-direction: row; /* Force row to override any global styles */
+  flex-direction: row;
+  /* Force row to override any global styles */
 }
 
 .homestay-card .card-price .price-left {
   display: flex;
-  align-items: center; /* Changed from baseline to center for better vertical alignment */
-  flex-direction: row; /* Force row */
+  align-items: center;
+  /* Changed from baseline to center for better vertical alignment */
+  flex-direction: row;
+  /* Force row */
   gap: 0.4rem;
   white-space: nowrap;
   min-width: 0;

@@ -4,6 +4,8 @@ import { MapPin, Star, Flame, Coffee, Wifi, Wind } from 'lucide-react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { showAlert } from '../utils/alert';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import './Detail.css';
 
 const getRoomImages = (roomType) => {
@@ -237,7 +239,9 @@ const Detail = () => {
   if (!hotel) return <div className="container" style={{padding: '5rem 0', textAlign: 'center'}}>Không tìm thấy Homestay này!</div>;
 
   return (
-    <div className="detail-page container">
+    <>
+      <Header />
+      <div className="detail-page container">
       {/* Gallery */}
       <div className="gallery-bento">
         <div className="gallery-main">
@@ -515,6 +519,8 @@ const Detail = () => {
         </div>
       )}
     </div>
+      <Footer />
+    </>
   );
 };
 

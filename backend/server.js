@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { verifyToken, isAdmin, isOwner } = require('./middleware/authMiddleware');
 const http = require('http');
 const { Server } = require('socket.io');
+const { sendOTPEmail } = require('./utils/sendEmail');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'baolocstay_secret_key';
 
@@ -425,7 +426,122 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ==========================================
-// API Lấy danh sách bookings của user hiện tại (Dùng JWT)
+// API Quên mật khẩu (Gửi OTP)
+// ==========================================
+app.post('/api/auth/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: 'Vui lòng cung cấp email!' });
+    }
+    try {
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
+
+        const request = pool.request();
+        request.input('email', sql.VarChar, email.trim());
+        const result = await request.query('SELECT id, email, password_hash FROM users WHERE email = @email');
+
+        if (result.recordset.length === 0) {
+            // Vẫn trả về thành công để tránh việc bị dò tìm email (security best practice)
+            return res.json({ success: true, message: 'Nếu email tồn tại, chúng tôi sẽ gửi mã OTP đến email đó.' });
+        }
+
+        const user = result.recordset[0];
+
+        // Tạo OTP 6 số
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Hash OTP
+        const salt = await bcrypt.genSalt(10);
+        const hashedOTP = await bcrypt.hash(otp, salt);
+
+        // Tạo JWT token chứa thông tin OTP, dùng chính password_hash làm secret
+        const secret = JWT_SECRET + user.password_hash;
+        const payload = {
+            id: user.id,
+            email: user.email,
+            hashedOTP: hashedOTP
+        };
+        const otpToken = jwt.sign(payload, secret, { expiresIn: '5m' }); // OTP có hiệu lực 5 phút
+
+        await sendOTPEmail(user.email, otp, 'forgot');
+
+        res.json({ 
+            success: true, 
+            message: 'Nếu email tồn tại, chúng tôi sẽ gửi mã OTP đến email đó.',
+            otpToken: otpToken // Gửi token tạm về frontend để xác thực sau
+        });
+    } catch (err) {
+        console.error('LỖI QUÊN MẬT KHẨU:', err.message);
+        res.status(500).json({ error: 'Lỗi server khi yêu cầu quên mật khẩu: ' + err.message });
+    }
+});
+
+// ==========================================
+// API Đặt lại mật khẩu (Xác nhận OTP)
+// ==========================================
+app.post('/api/auth/reset-password', async (req, res) => {
+    const { otpToken, otp, newPassword } = req.body;
+    if (!otpToken || !otp || !newPassword) {
+        return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ mã OTP và mật khẩu mới!' });
+    }
+    
+    try {
+        // Decode token để lấy id (chưa verify chữ ký vội vì cần password_hash từ DB)
+        const decoded = jwt.decode(otpToken);
+        if (!decoded || !decoded.id) {
+            return res.status(400).json({ error: 'Token không hợp lệ!' });
+        }
+        const id = decoded.id;
+
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
+
+        const request = pool.request();
+        request.input('id', sql.Int, id);
+        const result = await request.query('SELECT id, email, password_hash FROM users WHERE id = @id');
+
+        if (result.recordset.length === 0) {
+            return res.status(400).json({ error: 'Người dùng không tồn tại!' });
+        }
+
+        const user = result.recordset[0];
+        const secret = JWT_SECRET + user.password_hash;
+
+        try {
+            // Xác thực token
+            const verifiedPayload = jwt.verify(otpToken, secret);
+            
+            // Đối chiếu OTP
+            const isOtpValid = await bcrypt.compare(otp, verifiedPayload.hashedOTP);
+            if (!isOtpValid) {
+                return res.status(400).json({ error: 'Mã OTP không chính xác!' });
+            }
+
+            // Nếu OTP hợp lệ, hash mật khẩu mới và lưu vào db
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(newPassword, salt);
+            
+            const updateReq = pool.request();
+            updateReq.input('id', sql.Int, id);
+            updateReq.input('pwdHash', sql.VarChar, hashedPassword);
+            await updateReq.query('UPDATE users SET password_hash = @pwdHash WHERE id = @id');
+            
+            res.json({ success: true, message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.' });
+            
+        } catch (jwtError) {
+            console.error('Lỗi JWT Reset:', jwtError.message);
+            return res.status(400).json({ error: 'Mã OTP đã hết hạn hoặc không hợp lệ!' });
+        }
+        
+    } catch (err) {
+        console.error('LỖI ĐẶT LẠI MẬT KHẨU:', err.message);
+        res.status(500).json({ error: 'Lỗi server khi đặt lại mật khẩu: ' + err.message });
+    }
+});
+
+// ==========================================
+// API Cập nhật hồ sơ user (Sửa comment dư)
 // ==========================================
 app.put('/api/users/profile', verifyToken, async (req, res) => {
     try {
@@ -456,6 +572,106 @@ app.put('/api/users/profile', verifyToken, async (req, res) => {
     } catch (err) {
         console.error('LỖI CẬP NHẬT PROFILE:', err.message);
         res.status(500).json({ error: 'Lỗi server khi cập nhật: ' + err.message });
+    }
+});
+
+// ==========================================
+// API Yêu cầu đổi mật khẩu (Gửi OTP)
+// ==========================================
+app.post('/api/users/request-change-password', verifyToken, async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ error: 'Vui lòng cung cấp mật khẩu cũ và mật khẩu mới!' });
+        }
+
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
+
+        const request = pool.request();
+        request.input('userId', sql.Int, req.user.id);
+        const result = await request.query('SELECT email, password_hash FROM users WHERE id = @userId');
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
+        }
+
+        const user = result.recordset[0];
+
+        // Xác minh mật khẩu cũ
+        const isValid = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!isValid) {
+            return res.status(400).json({ error: 'Mật khẩu cũ không chính xác!' });
+        }
+
+        // Tạo OTP 6 số
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Hash OTP và Hash mật khẩu mới
+        const salt = await bcrypt.genSalt(10);
+        const hashedOTP = await bcrypt.hash(otp, salt);
+        const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+        // Tạo JWT token chứa thông tin OTP và mật khẩu mới
+        const payload = {
+            userId: req.user.id,
+            hashedOTP: hashedOTP,
+            hashedNewPassword: hashedNewPassword
+        };
+        const changePwdToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '5m' }); // Token có hiệu lực 5 phút
+
+        await sendOTPEmail(user.email, otp, 'change');
+
+        res.json({ 
+            success: true, 
+            message: 'Mã OTP đã được gửi đến email của bạn.',
+            changePwdToken: changePwdToken
+        });
+    } catch (err) {
+        console.error('LỖI YÊU CẦU ĐỔI MẬT KHẨU:', err.message);
+        res.status(500).json({ error: 'Lỗi server khi yêu cầu đổi mật khẩu: ' + err.message });
+    }
+});
+
+// ==========================================
+// API Xác nhận đổi mật khẩu (Bằng OTP)
+// ==========================================
+app.put('/api/users/confirm-change-password', verifyToken, async (req, res) => {
+    try {
+        const { changePwdToken, otp } = req.body;
+        if (!changePwdToken || !otp) {
+            return res.status(400).json({ error: 'Vui lòng cung cấp mã OTP và token!' });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(changePwdToken, JWT_SECRET);
+        } catch (jwtError) {
+            return res.status(400).json({ error: 'Mã OTP đã hết hạn hoặc token không hợp lệ!' });
+        }
+
+        if (decoded.userId !== req.user.id) {
+            return res.status(403).json({ error: 'Token không thuộc về tài khoản này!' });
+        }
+
+        // Đối chiếu OTP
+        const isOtpValid = await bcrypt.compare(otp, decoded.hashedOTP);
+        if (!isOtpValid) {
+            return res.status(400).json({ error: 'Mã OTP không chính xác!' });
+        }
+
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
+
+        const updateReq = pool.request();
+        updateReq.input('userId', sql.Int, req.user.id);
+        updateReq.input('pwdHash', sql.VarChar, decoded.hashedNewPassword);
+        await updateReq.query('UPDATE users SET password_hash = @pwdHash WHERE id = @userId');
+
+        res.json({ success: true, message: 'Đổi mật khẩu thành công!' });
+    } catch (err) {
+        console.error('LỖI XÁC NHẬN ĐỔI MẬT KHẨU:', err.message);
+        res.status(500).json({ error: 'Lỗi server khi đổi mật khẩu: ' + err.message });
     }
 });
 

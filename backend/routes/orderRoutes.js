@@ -12,6 +12,7 @@ router.delete('/bookings/:id', orderController.deleteBooking);
 // --- PAYMENTS (Admin only) ---
 // Admin restriction should be applied to this route specifically
 router.put('/payments/:bookingId/verify', isAdmin, orderController.verifyPayment);
+router.put('/bookings/:id/pay-remaining', orderController.payRemaining);
 
 // --- CẬP NHẬT TRẢ PHÒNG SỚM (Admin only) ---
 router.put('/bookings/:id/approve-refund', isAdmin, orderController.approveRefund);

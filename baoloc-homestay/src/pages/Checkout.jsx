@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Copy, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 import { showAlert } from '../utils/alert';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import './Checkout.css';
 
 const Checkout = () => {
@@ -54,7 +56,9 @@ const Checkout = () => {
   };
 
   return (
-    <div className="checkout-page container">
+    <>
+      <Header />
+      <div className="checkout-page container">
       <div className="checkout-header">
         <h1>Thanh toán đặt phòng</h1>
         <p>Vui lòng hoàn tất thanh toán trong vòng 15 phút</p>
@@ -161,6 +165,8 @@ const Checkout = () => {
         </div>
       </div>
     </div>
+      <Footer />
+    </>
   );
 };
 

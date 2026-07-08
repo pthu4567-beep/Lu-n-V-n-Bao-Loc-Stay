@@ -46,7 +46,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
   z-index: 1;
 }
 
@@ -73,7 +73,7 @@
   font-weight: 800;
   margin-bottom: 1rem;
   line-height: 1.1;
-  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .slogan p {
@@ -214,13 +214,29 @@
 }
 
 /* Colors for progress */
-.bg-danger { background-color: var(--status-danger); }
-.bg-warning { background-color: var(--status-pending); }
-.bg-success { background-color: var(--status-confirmed); }
+.bg-danger {
+  background-color: var(--status-danger);
+}
 
-.text-danger { color: var(--status-danger); }
-.text-warning { color: var(--status-pending); }
-.text-success { color: var(--status-confirmed); }
+.bg-warning {
+  background-color: var(--status-pending);
+}
+
+.bg-success {
+  background-color: var(--status-confirmed);
+}
+
+.text-danger {
+  color: var(--status-danger);
+}
+
+.text-warning {
+  color: var(--status-pending);
+}
+
+.text-success {
+  color: var(--status-confirmed);
+}
 
 .confirm-text {
   font-size: 0.8rem;
@@ -322,8 +338,15 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .toast-notification {
@@ -351,10 +374,16 @@
   border-left: 4px solid var(--status-confirmed);
   color: var(--text-primary);
 }
-.toast-notification.success svg { color: var(--status-confirmed); }
+
+.toast-notification.success svg {
+  color: var(--status-confirmed);
+}
 
 .toast-notification.error {
   border-left: 4px solid var(--status-danger);
   color: var(--text-primary);
 }
-.toast-notification.error svg { color: var(--status-danger); }
+
+.toast-notification.error svg {
+  color: var(--status-danger);
+}

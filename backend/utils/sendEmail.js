@@ -115,4 +115,50 @@ const sendBookingConfirmation = async (bookingData, customerEmail) => {
     }
 };
 
-module.exports = { sendBookingConfirmation };
+const sendOTPEmail = async (email, otp, type) => {
+    try {
+        const title = type === 'forgot' ? 'KHÔI PHỤC MẬT KHẨU' : 'XÁC NHẬN ĐỔI MẬT KHẨU';
+        const message = type === 'forgot' 
+            ? 'Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản liên kết với email này.' 
+            : 'Bạn vừa yêu cầu đổi mật khẩu cho tài khoản của mình.';
+            
+        const htmlTemplate = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+            <div style="text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px;">
+                <h2 style="color: #1d4ed8; margin: 0;">${title}</h2>
+            </div>
+            
+            <p style="color: #374151; font-size: 16px;">Xin chào,</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.5;">${message}</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.5;">Vui lòng sử dụng mã OTP gồm 6 chữ số dưới đây để xác nhận. Mã này sẽ hết hạn trong vòng 5 phút.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <div style="background-color: #f3f4f6; color: #1d4ed8; padding: 15px 30px; border-radius: 8px; font-weight: bold; font-size: 28px; letter-spacing: 4px; display: inline-block; border: 2px dashed #93c5fd;">
+                    ${otp}
+                </div>
+            </div>
+            
+            <p style="color: #374151; font-size: 14px; line-height: 1.5; color: #ef4444;">Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai, kể cả nhân viên hỗ trợ.</p>
+            
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; font-size: 14px; color: #4b5563; text-align: center; margin-top: 20px;">
+                <p style="margin: 0;">Cảm ơn bạn đã đồng hành cùng Bảo Lộc Stay!</p>
+            </div>
+        </div>
+        `;
+
+        const mailOptions = {
+            from: `"Bảo Lộc Stay" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: `Mã OTP ${title.toLowerCase()} - Bảo Lộc Stay`,
+            html: htmlTemplate
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[Email Sent] Email OTP đã được gửi tới ${email}. MessageId: ${info.messageId}`);
+    } catch (error) {
+        console.error(`[Email Error] Lỗi khi gửi email OTP cho ${email}:`, error);
+        throw error;
+    }
+};
+
+module.exports = { sendBookingConfirmation, sendOTPEmail };

@@ -36,6 +36,12 @@
   letter-spacing: 0.5px;
 }
 
+.logo-img {
+  height: 60px; /* Chiều cao vừa vặn với thanh header (72px) */
+  object-fit: contain;
+  mix-blend-mode: multiply; /* Giúp lọc bỏ nền trắng của logo, chỉ giữ lại hình */
+}
+
 .main-nav {
   display: none;
 }

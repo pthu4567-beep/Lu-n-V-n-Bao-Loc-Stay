@@ -61,8 +61,7 @@ const Invoice = () => {
       <div className="invoice-card">
         <div className="invoice-header">
           <div className="invoice-logo">
-            <HomeIcon size={32} color="#0ea5e9" />
-            <span>Bảo Lộc Stay</span>
+            <img src="/logo.png" alt="BaoLoc Stay Logo" className="logo-img" />
           </div>
           <div className="invoice-title">
             <h1>HÓA ĐƠN / BIÊN NHẬN</h1>

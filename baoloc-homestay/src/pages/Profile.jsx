@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, History, LogOut, Star, CheckCircle, AlertCircle, AlertTriangle, Clock, CreditCard, Trash2, Edit, Receipt } from 'lucide-react';
+import { User, History, LogOut, Star, CheckCircle, AlertCircle, AlertTriangle, Clock, CreditCard, Trash2, Edit, Receipt, Key, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import './Profile.css';
 
 const formatLocalDateOnly = (dateString) => {
@@ -36,6 +38,17 @@ const Profile = () => {
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editProfileData, setEditProfileData] = useState({ full_name: '', phone: '' });
+
+  // Change Password State
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isOtpStep, setIsOtpStep] = useState(false);
+  const [changePwdToken, setChangePwdToken] = useState('');
+  const [otp, setOtp] = useState('');
 
   // Lấy thông tin user đăng nhập từ sessionStorage
   useEffect(() => {
@@ -185,6 +198,69 @@ const Profile = () => {
     }
   };
 
+  const handleRequestChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+      setNotification({ isOpen: true, message: "Mật khẩu mới không khớp!", type: 'error' });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      setNotification({ isOpen: true, message: "Mật khẩu mới phải có ít nhất 6 ký tự!", type: 'error' });
+      return;
+    }
+
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await axios.post('http://localhost:5000/api/users/request-change-password', {
+        oldPassword,
+        newPassword
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.data.success) {
+        setNotification({ isOpen: true, message: res.data.message, type: 'success' });
+        setChangePwdToken(res.data.changePwdToken);
+        setIsOtpStep(true);
+      }
+    } catch (err) {
+      setNotification({ isOpen: true, message: err.response?.data?.error || "Có lỗi xảy ra khi yêu cầu đổi mật khẩu", type: 'error' });
+    }
+  };
+
+  const handleConfirmChangePassword = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.length < 6) return;
+
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await axios.put('http://localhost:5000/api/users/confirm-change-password', {
+        changePwdToken,
+        otp
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.data.success) {
+        setNotification({ isOpen: true, message: res.data.message, type: 'success' });
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setOtp('');
+        setChangePwdToken('');
+        setIsOtpStep(false);
+      }
+    } catch (err) {
+      setNotification({ isOpen: true, message: err.response?.data?.error || "Mã OTP không chính xác", type: 'error' });
+    }
+  };
+
+
   const getStatusConfig = (status) => {
     switch(status) {
       case 'pending_payment': return { text: 'Chờ thanh toán', class: 'status-pending' };
@@ -205,7 +281,9 @@ const Profile = () => {
   const displayUsername = user.full_name || (user.email ? user.email.split('@')[0] : 'Khách Hàng');
 
   return (
-    <div className="profile-page container">
+    <>
+      <Header />
+      <div className="profile-page container">
       <div className="profile-layout">
         <aside className="profile-sidebar glass-panel">
           <div className="user-avatar-lg">
@@ -226,6 +304,12 @@ const Profile = () => {
               onClick={() => setActiveTab('history')}
             >
               <History size={18} /> Lịch sử đặt phòng
+            </button>
+            <button 
+              className={`nav-btn ${activeTab === 'password' ? 'active' : ''}`}
+              onClick={() => setActiveTab('password')}
+            >
+              <Key size={18} /> Đổi mật khẩu
             </button>
             <button className="nav-btn text-danger" onClick={handleLogout}>
               <LogOut size={18} /> Đăng xuất
@@ -383,6 +467,98 @@ const Profile = () => {
               )}
             </div>
           )}
+
+          {activeTab === 'password' && (
+            <div className="tab-pane">
+              <div style={{ marginBottom: '20px' }}>
+                <h2 style={{ margin: 0 }}>Đổi mật khẩu</h2>
+                <p style={{ color: '#64748b', fontSize: '14px', marginTop: '8px' }}>
+                  {isOtpStep ? "Vui lòng nhập mã OTP đã được gửi đến email của bạn." : "Vui lòng nhập mật khẩu cũ và mật khẩu mới để thay đổi."}
+                </p>
+              </div>
+              
+              {isOtpStep ? (
+                // BƯỚC 2: XÁC NHẬN OTP
+                <form className="profile-form" onSubmit={handleConfirmChangePassword}>
+                  <div className="form-group">
+                    <label>Mã OTP (6 chữ số)</label>
+                    <input 
+                      type="text" 
+                      value={otp} 
+                      onChange={e => setOtp(e.target.value)} 
+                      placeholder="Nhập mã OTP" 
+                      maxLength={6}
+                      required 
+                      style={{ fontSize: '20px', letterSpacing: '2px', textAlign: 'center' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button type="button" className="btn btn-outline" onClick={() => setIsOtpStep(false)}>
+                      Quay lại
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={!otp || otp.length < 6}>
+                      Xác nhận & Đổi mật khẩu
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                // BƯỚC 1: NHẬP MẬT KHẨU
+                <form className="profile-form" onSubmit={handleRequestChangePassword}>
+                  <div className="form-group">
+                    <label>Mật khẩu cũ</label>
+                    <div className="password-input" style={{ position: 'relative' }}>
+                      <input 
+                        type={showOldPassword ? "text" : "password"} 
+                        value={oldPassword} 
+                        onChange={e => setOldPassword(e.target.value)} 
+                        placeholder="Nhập mật khẩu hiện tại" 
+                        required 
+                      />
+                      <button type="button" className="eye-btn" onClick={() => setShowOldPassword(!showOldPassword)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                        {showOldPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Mật khẩu mới</label>
+                    <div className="password-input" style={{ position: 'relative' }}>
+                      <input 
+                        type={showNewPassword ? "text" : "password"} 
+                        value={newPassword} 
+                        onChange={e => setNewPassword(e.target.value)} 
+                        placeholder="Nhập mật khẩu mới" 
+                        required 
+                      />
+                      <button type="button" className="eye-btn" onClick={() => setShowNewPassword(!showNewPassword)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Xác nhận mật khẩu mới</label>
+                    <div className="password-input" style={{ position: 'relative' }}>
+                      <input 
+                        type={showConfirmNewPassword ? "text" : "password"} 
+                        value={confirmNewPassword} 
+                        onChange={e => setConfirmNewPassword(e.target.value)} 
+                        placeholder="Nhập lại mật khẩu mới" 
+                        required 
+                      />
+                      <button type="button" className="eye-btn" onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                        {showConfirmNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
+                    Gửi mã OTP
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
         </main>
       </div>
 
@@ -472,6 +648,8 @@ const Profile = () => {
         </div>
       )}
     </div>
+      <Footer />
+    </>
   );
 };
 

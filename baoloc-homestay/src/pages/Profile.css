@@ -1,5 +1,5 @@
 .profile-page {
-  padding-top: 2rem;
+  padding-top: calc(72px + 2rem);
   padding-bottom: 5rem;
 }
 

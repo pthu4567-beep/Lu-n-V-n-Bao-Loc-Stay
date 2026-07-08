@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home as HomeIcon, ChevronDown, User, History, LogOut, Menu, Bell } from 'lucide-react';
+import { Home as HomeIcon, ChevronDown, User, History, LogOut, Menu, Bell, Key } from 'lucide-react';
 import axios from 'axios';
 import './Header.css';
 
@@ -69,8 +69,7 @@ const Header = () => {
       <div className="header-container container">
         {/* Left: Logo */}
         <div className="logo-section" onClick={() => navigate('/')}>
-          <HomeIcon className="logo-icon" size={28} />
-          <span className="logo-text">BaoLoc Stay</span>
+          <img src="/logo.png" alt="BaoLoc Stay Logo" className="logo-img" />
         </div>
 
         {/* Center: Navigation */}
@@ -129,7 +128,7 @@ const Header = () => {
 
               <div className="user-profile" onClick={() => setShowDropdown(!showDropdown)}>
                 <img src="https://i.pravatar.cc/150?img=32" alt="Avatar" className="avatar" />
-                <span className="username">{user ? user.email.split('@')[0] : 'Khách Hàng'}</span>
+                <span className="username">{user ? (user.full_name || user.email.split('@')[0]) : 'Khách Hàng'}</span>
                 <ChevronDown size={16} />
 
                 {showDropdown && (
@@ -141,6 +140,7 @@ const Header = () => {
                     )}
                     <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'profile' } })}><User size={16} /> Hồ sơ cá nhân</button>
                     <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'history' } })}><History size={16} /> Lịch sử đặt phòng</button>
+                    <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'password' } })}><Key size={16} /> Đổi mật khẩu</button>
                     <button className="dropdown-item text-danger" onClick={handleLogout}><LogOut size={16} /> Đăng xuất</button>
                   </div>
                 )}

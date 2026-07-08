@@ -4,6 +4,8 @@ import { Search, Calendar, Users, MapPin, Star, Heart, User, History, LogOut, Me
 import axios from 'axios';
 import { mockHomestays } from '../data/homestays';
 import { showToast } from '../utils/alert';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import './Home.css';
 
 const Home = () => {
@@ -175,102 +177,7 @@ const Home = () => {
 
   return (
     <div className="home-page">
-      {/* Fixed Header */}
-      <header className="fixed-header">
-        <div className="header-container container">
-          {/* Left: Logo */}
-          <div className="logo-section" onClick={() => navigate('/')}>
-            <HomeIcon className="logo-icon" size={28} />
-            <span className="logo-text">BaoLoc Stay</span>
-          </div>
-
-          {/* Center: Navigation */}
-          <nav className="main-nav">
-            <a href="/" className="nav-link active">Trang chủ</a>
-            <a href="/search" className="nav-link">Khám phá Homestay</a>
-            <a href="#" className="nav-link">Khuyến mãi</a>
-            <a href="#contact" className="nav-link">Liên hệ</a>
-          </nav>
-
-          {/* Right: Auth */}
-          <div className="auth-section">
-            {!isLoggedIn ? (
-              <div className="guest-auth">
-                <button className="btn-text" onClick={() => navigate('/auth')}>Đăng nhập</button>
-                <button className="btn-register" onClick={() => navigate('/auth?mode=register')}>Đăng ký</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                {/* Notification Bell */}
-                <div className="notification-bell" style={{ position: 'relative', cursor: 'pointer' }}>
-                  <div onClick={() => setShowNotif(!showNotif)}>
-                    <Bell size={22} color="#475569" />
-                    {unreadCount > 0 && (
-                      <span style={{ position: 'absolute', top: '-5px', right: '-8px', background: '#ef4444', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>
-                        {unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  {showNotif && (
-                    <div className="dropdown-menu notif-menu" style={{ position: 'absolute', width: '320px', right: '-10px', padding: '12px', top: '150%', cursor: 'default', background: 'white', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', borderRadius: '8px', zIndex: 100 }}>
-                      <h4 style={{ margin: '0 0 10px 0', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', fontSize: '15px' }}>Thông báo của bạn</h4>
-                      {notifications.length === 0 ? <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', padding: '10px 0' }}>Chưa có thông báo nào</p> : (
-                        <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {notifications.map(n => (
-                            <div key={n.id} onClick={() => !n.is_read && markAsRead(n.id)} style={{ padding: '10px', border: '1px solid #e2e8f0', background: n.is_read ? '#ffffff' : '#f0fdf4', cursor: n.is_read ? 'default' : 'pointer', borderRadius: '8px' }}>
-                              <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>{n.title}</div>
-                              <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '4px', lineHeight: '1.4' }}>{n.message}</div>
-                              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
-                                {(() => {
-                                  if (!n.created_at) return '';
-                                  const parts = n.created_at.replace('Z', '').split('T');
-                                  if (parts.length < 2) return n.created_at;
-                                  const dateP = parts[0].split('-');
-                                  const timeP = parts[1].split('.')[0];
-                                  return `${timeP} ${dateP[2]}/${dateP[1]}/${dateP[0]}`;
-                                })()}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="user-profile" onClick={() => setShowDropdown(!showDropdown)}>
-                  <img src="https://i.pravatar.cc/150?img=32" alt="Avatar" className="avatar" />
-                  <span className="username">{user ? user.email.split('@')[0] : 'Khách Hàng'}</span>
-                  <ChevronDown size={16} />
-
-                  {showDropdown && (
-                    <div className="dropdown-menu">
-                      {user && [1, 2, 4].includes(parseInt(user.roleId || user.role_id)) && (
-                        <button className="dropdown-item text-primary" onClick={() => navigate('/admin')} style={{ fontWeight: 'bold' }}>
-                          <User size={16} /> Trang quản lý
-                        </button>
-                      )}
-                      <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'profile' } })}><User size={16} /> Hồ sơ cá nhân</button>
-                      <button className="dropdown-item" onClick={() => navigate('/profile', { state: { tab: 'history' } })}><History size={16} /> Lịch sử đặt phòng</button>
-                      <button className="dropdown-item text-danger" onClick={() => {
-                        sessionStorage.removeItem('isLoggedIn');
-                        sessionStorage.removeItem('user');
-                        sessionStorage.removeItem('token');
-                        setIsLoggedIn(false);
-                        setUser(null);
-                      }}><LogOut size={16} /> Đăng xuất</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <button className="mobile-menu-btn">
-              <Menu size={24} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="hero">
@@ -526,54 +433,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Detailed Footer */}
-      <footer className="main-footer">
-        <div className="container">
-          <div className="footer-grid">
-            <div className="footer-col">
-              <div className="footer-logo">
-                <HomeIcon size={24} />
-                <span>BaoLoc Stay</span>
-              </div>
-              <p className="company-desc">Hệ thống đặt phòng homestay uy tín hàng đầu tại Bảo Lộc. Mang đến những trải nghiệm lưu trú tuyệt vời nhất.</p>
-              <div className="contact-info">
-                <p>📍 18 Ngô Tất Tố,Phường 3 Bảo Lộc, Lâm Đồng</p>
-                <p>📞 Hotline: 0909 123 456</p>
-                <p>✉️ Email: hello@baolocstay.vn</p>
-              </div>
-            </div>
-
-            <div className="footer-col">
-              <h3>Hỗ trợ khách hàng</h3>
-              <ul className="footer-links">
-                <li><a href="#">Trung tâm trợ giúp</a></li>
-                <li><a href="#">Chính sách bảo mật</a></li>
-                <li><a href="#">Quy định hủy phòng</a></li>
-                <li><a href="#">Hướng dẫn thanh toán</a></li>
-                <li><a href="#">Câu hỏi thường gặp</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h3>Hình thức thanh toán</h3>
-              <div className="payment-logos">
-                <div className="payment-logo">VietQR</div>
-                <div className="payment-logo">VNPay</div>
-              </div>
-              <h3 className="mt-4">Kết nối với chúng tôi</h3>
-              <div className="social-links">
-                <a href="#" className="social-icon">FB</a>
-                <a href="#" className="social-icon">IG</a>
-                <a href="#" className="social-icon">TT</a>
-              </div>
-            </div>
-          </div>
-
-          <div className="footer-bottom">
-            <p>Copyright &copy; 2026 Website Lưu trú Bảo Lộc. Thiết kế bởi Anh Thư.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

@@ -71,6 +71,9 @@ const AdminDashboard = () => {
   const [checkInBookingId, setCheckInBookingId] = useState(null);
   const [checkInCCCD, setCheckInCCCD] = useState('');
 
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [roleModalData, setRoleModalData] = useState({ userId: null, newRole: 3, hotelId: '' });
+
 
   // Filter States
   const [filterPayment, setFilterPayment] = useState('all');
@@ -194,6 +197,28 @@ const AdminDashboard = () => {
     }
   };
 
+  // Thu tiền phần còn lại
+  const handlePayRemaining = async (bookingId) => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+
+    const confirmResult = await showConfirm('Thu tiền', `Xác nhận đã thu đủ số tiền còn lại cho đơn hàng #${bookingId}?`);
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+      const res = await axios.put(`http://localhost:5000/api/admin/orders/bookings/${bookingId}/pay-remaining`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        showToast("Thu tiền thành công!", 'success');
+        setPayments(payments.map(p => (p.bookingId || p.id) === bookingId ? { ...p, remaining_amount: 0, payment_status: 'paid', status: (p.status === 'deposited' ? 'confirmed' : p.status) } : p));
+        setSelectedOrder(null);
+      }
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Lỗi khi thu tiền', 'error');
+    }
+  };
+
   // Duyệt hoàn tiền
   const handleApproveRefund = async (bookingId) => {
     const token = sessionStorage.getItem('token');
@@ -309,24 +334,36 @@ const AdminDashboard = () => {
   };
 
   // --- USERS MANAGEMENT ---
-  const handleUpdateRole = async (id, currentRoleId) => {
-    const token = sessionStorage.getItem('token');
-    const newRole = parseInt(prompt("Nhập Role ID mới (1: Admin, 2: Owner, 3: Customer, 4: Staff):", currentRoleId));
-    if (!newRole || ![1, 2, 3, 4].includes(newRole)) return;
+  const handleUpdateRole = (id, currentRoleId) => {
+    setRoleModalData({ userId: id, newRole: currentRoleId || 3, hotelId: '' });
+    setShowRoleModal(true);
+  };
 
-    let hotelId = null;
-    if (newRole === 4) {
-      hotelId = parseInt(prompt("Nhập ID Khách sạn (Homestay) mà nhân viên này quản lý:"));
-      if (!hotelId) return;
+  const submitUpdateRole = async () => {
+    const { userId, newRole, hotelId } = roleModalData;
+    const token = sessionStorage.getItem('token');
+    if (!newRole || ![1, 2, 3, 4].includes(parseInt(newRole))) {
+      showToast("Vui lòng chọn quyền hợp lệ!", "error");
+      return;
+    }
+
+    let parsedHotelId = null;
+    if (parseInt(newRole) === 4) {
+      parsedHotelId = parseInt(hotelId);
+      if (!parsedHotelId) {
+        showToast("Vui lòng nhập ID Khách sạn!", "error");
+        return;
+      }
     }
 
     try {
-      const res = await axios.put(`http://localhost:5000/api/admin/system/users/${id}/role`, { role_id: newRole, hotel_id: hotelId }, {
+      const res = await axios.put(`http://localhost:5000/api/admin/system/users/${userId}/role`, { role_id: parseInt(newRole), hotel_id: parsedHotelId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
         showToast("Cập nhật thành công!", 'success');
-        setUsersList(usersList.map(u => u.id === id ? { ...u, role_id: newRole, hotel_id: hotelId } : u));
+        setUsersList(usersList.map(u => u.id === userId ? { ...u, role_id: parseInt(newRole), hotel_id: parsedHotelId } : u));
+        setShowRoleModal(false);
       }
     } catch (err) {
       showToast(err.response?.data?.error || "Lỗi cập nhật quyền", 'error');
@@ -1674,6 +1711,17 @@ const AdminDashboard = () => {
                   <Check size={18} /> Duyệt tiền
                 </button>
               )}
+              {((selectedOrder.status === 'deposited' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'checked_in') && selectedOrder.remaining_amount > 0) && (
+                <button 
+                  className="btn btn-success" 
+                  style={{ flex: 1, padding: '0.75rem', fontWeight: 600, borderRadius: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'white' }}
+                  onClick={() => {
+                    handlePayRemaining(selectedOrder.bookingId || selectedOrder.id);
+                  }}
+                >
+                  <DollarSign size={18} /> Thu tiền còn lại
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1928,6 +1976,51 @@ const AdminDashboard = () => {
             <div className="modal-actions">
               <button type="button" className="btn btn-outline" onClick={() => setShowCheckInModal(false)}>Hủy</button>
               <button type="button" className="btn btn-primary" onClick={confirmCheckIn}>Xác nhận Nhận phòng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ROLE MODAL */}
+      {showRoleModal && (
+        <div className="modal-overlay" onClick={() => setShowRoleModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Đổi Quyền Người Dùng</h2>
+              <button className="close-btn" onClick={() => setShowRoleModal(false)}><X size={20} /></button>
+            </div>
+            <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div className="form-group">
+                <label>Quyền (Role)</label>
+                <select 
+                  className="form-control"
+                  value={roleModalData.newRole}
+                  onChange={(e) => setRoleModalData({ ...roleModalData, newRole: parseInt(e.target.value) })}
+                >
+                  <option value={1}>1: Quản trị viên (Admin)</option>
+                  <option value={2}>2: Chủ khách sạn (Owner)</option>
+                  <option value={3}>3: Khách hàng (Customer)</option>
+                  <option value={4}>4: Nhân viên (Staff)</option>
+                </select>
+              </div>
+              {roleModalData.newRole === 4 && (
+                <div className="form-group animate-fade-in">
+                  <label>ID Khách sạn (Homestay) quản lý <span style={{ color: 'red' }}>*</span></label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={roleModalData.hotelId} 
+                    onChange={(e) => setRoleModalData({ ...roleModalData, hotelId: e.target.value })} 
+                    className="form-control" 
+                    placeholder="Nhập ID Khách sạn"
+                    autoFocus
+                  />
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setShowRoleModal(false)}>Hủy</button>
+              <button type="button" className="btn btn-primary" onClick={submitUpdateRole}>Lưu Thay Đổi</button>
             </div>
           </div>
         </div>

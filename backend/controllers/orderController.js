@@ -516,3 +516,49 @@ exports.deleteBooking = async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }
 };
+
+exports.payRemaining = async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const pool = await poolPromise;
+        
+        // Admin or staff check could be done via middleware
+        const request = pool.request();
+        request.input('bookingId', sql.Int, bookingId);
+
+        const checkRes = await request.query(`SELECT remaining_amount, booking_status FROM bookings WHERE id = @bookingId`);
+        if (checkRes.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+        }
+
+        const b = checkRes.recordset[0];
+        if (b.remaining_amount <= 0) {
+            return res.status(400).json({ success: false, message: 'Đơn hàng này không còn nợ phí' });
+        }
+
+        let newBookingStatus = b.booking_status;
+        if (newBookingStatus === 'deposited') {
+            newBookingStatus = 'confirmed';
+        }
+
+        // Update booking and payment
+        const updateReq = pool.request();
+        updateReq.input('bookingId', sql.Int, bookingId);
+        updateReq.input('newBookingStatus', sql.VarChar, newBookingStatus);
+
+        await updateReq.query(`
+            UPDATE bookings 
+            SET remaining_amount = 0, booking_status = @newBookingStatus 
+            WHERE id = @bookingId;
+
+            UPDATE payments 
+            SET payment_status = 'paid' 
+            WHERE booking_id = @bookingId;
+        `);
+
+        res.json({ success: true, message: 'Đã thu tiền phần còn lại thành công' });
+    } catch (err) {
+        console.error('Lỗi khi thu tiền:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
