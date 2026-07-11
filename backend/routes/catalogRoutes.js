@@ -31,5 +31,7 @@ router.delete('/rooms/:id', catalogController.deleteRoom);
 // --- PROMOTIONS ---
 router.get('/promotions', catalogController.getPromotions);
 router.post('/promotions', catalogController.createPromotion);
+router.put('/promotions/:id', catalogController.updatePromotion);
+router.delete('/promotions/:id', catalogController.deletePromotion);
 
 module.exports = router;

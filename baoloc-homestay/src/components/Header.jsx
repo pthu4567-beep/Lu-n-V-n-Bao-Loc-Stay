@@ -17,10 +17,19 @@ const Header = () => {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   useEffect(() => {
-    const storedUser = sessionStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const handleAvatarChanged = () => {
+      const storedUser = sessionStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    };
+
+    handleAvatarChanged();
+
+    window.addEventListener('avatarChanged', handleAvatarChanged);
+    return () => {
+      window.removeEventListener('avatarChanged', handleAvatarChanged);
+    };
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -76,7 +85,7 @@ const Header = () => {
         <nav className="main-nav">
           <a href="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Trang chủ</a>
           <a href="/search" className={`nav-link ${location.pathname === '/search' ? 'active' : ''}`}>Khám phá Homestay</a>
-          <a href="/#promotions" className="nav-link">Khuyến mãi</a>
+          <a href="/promotions" className={`nav-link ${location.pathname === '/promotions' ? 'active' : ''}`}>Khuyến mãi</a>
           <a href="/#contact" className="nav-link">Liên hệ</a>
         </nav>
 
@@ -127,7 +136,7 @@ const Header = () => {
               </div>
 
               <div className="user-profile" onClick={() => setShowDropdown(!showDropdown)}>
-                <img src="https://i.pravatar.cc/150?img=32" alt="Avatar" className="avatar" />
+                <img src={user?.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : "https://i.pravatar.cc/150?img=32"} alt="Avatar" className="avatar" />
                 <span className="username">{user ? (user.full_name || user.email.split('@')[0]) : 'Khách Hàng'}</span>
                 <ChevronDown size={16} />
 

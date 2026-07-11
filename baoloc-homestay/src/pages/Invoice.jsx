@@ -143,10 +143,18 @@ const Invoice = () => {
           </div>
 
           <div className="invoice-summary mt-4">
-            <div className="summary-row" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px' }}>
-              <span style={{ fontSize: '1.1rem', color: '#64748b' }}>Tổng giá trị đơn hàng</span>
+            <div className="summary-row" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '1.1rem', color: '#64748b' }}>Tổng giá trị đơn hàng (Tạm tính)</span>
               <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{invoice.total_amount?.toLocaleString('vi-VN')} ₫</span>
             </div>
+
+            {/* Hiển thị chiết khấu / giảm giá nếu có */}
+            {(invoice.discount_percent || invoice.discount_amount) ? (
+              <div className="summary-row discount-row" style={{ borderBottom: '1px solid #e2e8f0', color: '#16a34a', paddingBottom: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 500 }}>Chiết khấu / Giảm giá ({invoice.discount_percent ? `${invoice.discount_percent}%` : 'Voucher'})</span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>-{invoice.discount_amount ? invoice.discount_amount.toLocaleString('vi-VN') : '0'} ₫</span>
+              </div>
+            ) : null}
             
             <div className="summary-row deposit-row" style={{ backgroundColor: '#fffbeb', color: '#b45309', padding: '12px', borderRadius: '8px', border: '1px solid #fcd34d', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 600 }}>Số tiền bắt buộc thanh toán cọc ngay</span>

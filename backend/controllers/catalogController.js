@@ -489,7 +489,25 @@ exports.deleteRoom = async (req, res) => {
 exports.getPromotions = async (req, res) => {
     try {
         const pool = await poolPromise;
-        const result = await pool.request().query('SELECT * FROM promotions ORDER BY id DESC');
+        const userId = req.user.id;
+        const roleId = req.user.roleId;
+
+        let query = `
+            SELECT p.*, h.name as hotel_name 
+            FROM promotions p 
+            LEFT JOIN hotels h ON p.hotel_id = h.id 
+        `;
+
+        if (roleId === 2) {
+            query += ` WHERE h.owner_id = @userId `;
+        }
+        
+        query += ` ORDER BY p.id DESC`;
+
+        const request = pool.request();
+        if (roleId === 2) request.input('userId', sql.Int, userId);
+
+        const result = await request.query(query);
         res.json({ success: true, message: 'Thành công', data: result.recordset });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
@@ -500,10 +518,24 @@ exports.createPromotion = async (req, res) => {
     try {
         const { hotel_id, discount_code, discount_percent, valid_until } = req.body;
         const pool = await poolPromise;
+        const userId = req.user.id;
+        const roleId = req.user.roleId;
+
+        if (roleId === 2) {
+            if (!hotel_id) return res.status(400).json({ success: false, message: 'Owner phải chọn khách sạn' });
+            const checkReq = pool.request();
+            checkReq.input('hotelId', sql.Int, hotel_id);
+            const checkRes = await checkReq.query('SELECT owner_id FROM hotels WHERE id = @hotelId');
+            if (checkRes.recordset.length === 0) return res.status(404).json({ success: false, message: 'Khách sạn không tồn tại' });
+            if (String(checkRes.recordset[0].owner_id) !== String(userId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền tạo khuyến mãi cho khách sạn này!' });
+            }
+        }
+
         const request = pool.request();
-        request.input('hotel_id', sql.Int, hotel_id);
+        request.input('hotel_id', sql.Int, hotel_id || null);
         request.input('discount_code', sql.VarChar, discount_code);
-        request.input('discount_percent', sql.Decimal(5, 2), discount_percent);
+        request.input('discount_percent', sql.Float, discount_percent);
         request.input('valid_until', sql.DateTime, valid_until);
 
         const query = `
@@ -513,6 +545,80 @@ exports.createPromotion = async (req, res) => {
         `;
         const result = await request.query(query);
         res.json({ success: true, message: 'Thêm khuyến mãi thành công', data: result.recordset[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
+exports.updatePromotion = async (req, res) => {
+    try {
+        const promoId = parseInt(req.params.id);
+        const { discount_code, discount_percent, valid_until } = req.body;
+        const pool = await poolPromise;
+        const userId = req.user.id;
+        const roleId = req.user.roleId;
+
+        if (roleId === 2) {
+            const checkReq = pool.request();
+            checkReq.input('id', sql.Int, promoId);
+            const checkRes = await checkReq.query(`
+                SELECT h.owner_id 
+                FROM promotions p 
+                JOIN hotels h ON p.hotel_id = h.id 
+                WHERE p.id = @id
+            `);
+            if (checkRes.recordset.length === 0) return res.status(404).json({ success: false, message: 'Khuyến mãi không tồn tại hoặc áp dụng toàn hệ thống' });
+            if (String(checkRes.recordset[0].owner_id) !== String(userId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền sửa khuyến mãi này!' });
+            }
+        }
+
+        const request = pool.request();
+        request.input('id', sql.Int, promoId);
+        request.input('discount_code', sql.VarChar, discount_code);
+        request.input('discount_percent', sql.Float, discount_percent);
+        request.input('valid_until', sql.DateTime, valid_until);
+
+        await request.query(`
+            UPDATE promotions 
+            SET discount_code=@discount_code, discount_percent=@discount_percent, valid_until=@valid_until
+            WHERE id = @id
+        `);
+        res.json({ success: true, message: 'Cập nhật khuyến mãi thành công' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
+exports.deletePromotion = async (req, res) => {
+    try {
+        const promoId = parseInt(req.params.id);
+        const pool = await poolPromise;
+        const userId = req.user.id;
+        const roleId = req.user.roleId;
+
+        if (roleId === 2) {
+            const checkReq = pool.request();
+            checkReq.input('id', sql.Int, promoId);
+            const checkRes = await checkReq.query(`
+                SELECT h.owner_id 
+                FROM promotions p 
+                JOIN hotels h ON p.hotel_id = h.id 
+                WHERE p.id = @id
+            `);
+            if (checkRes.recordset.length === 0) return res.status(404).json({ success: false, message: 'Khuyến mãi không tồn tại' });
+            if (String(checkRes.recordset[0].owner_id) !== String(userId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền xóa khuyến mãi này!' });
+            }
+        }
+
+        const request = pool.request();
+        request.input('id', sql.Int, promoId);
+        await request.query(`
+            DELETE FROM user_promotions WHERE promotion_id = @id;
+            DELETE FROM promotions WHERE id = @id;
+        `);
+        res.json({ success: true, message: 'Xóa khuyến mãi thành công' });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }

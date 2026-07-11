@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, History, LogOut, Star, CheckCircle, AlertCircle, AlertTriangle, Clock, CreditCard, Trash2, Edit, Receipt, Key, Eye, EyeOff } from 'lucide-react';
+import { User, History, LogOut, Star, CheckCircle, AlertCircle, AlertTriangle, Clock, CreditCard, Trash2, Edit, Receipt, Key, Eye, EyeOff, Camera } from 'lucide-react';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -198,6 +198,36 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await axios.post('http://localhost:5000/api/users/avatar', formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (res.data.success) {
+        setUser(res.data.user);
+        sessionStorage.setItem('user', JSON.stringify(res.data.user));
+        setNotification({ isOpen: true, message: 'Cập nhật ảnh đại diện thành công!', type: 'success' });
+        // Emit custom event to notify Header component
+        window.dispatchEvent(new Event('avatarChanged'));
+      }
+    } catch (err) {
+      setNotification({ isOpen: true, message: err.response?.data?.error || 'Lỗi khi tải ảnh lên', type: 'error' });
+    }
+  };
+
   const handleRequestChangePassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmNewPassword) {
@@ -287,7 +317,17 @@ const Profile = () => {
       <div className="profile-layout">
         <aside className="profile-sidebar glass-panel">
           <div className="user-avatar-lg">
-            <div className="avatar-circle">{emailInitial}</div>
+            <div className="avatar-wrapper" style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 15px', borderRadius: '50%', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload').click()}>
+              {user.avatar ? (
+                <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              ) : (
+                <div className="avatar-circle" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0 }}>{emailInitial}</div>
+              )}
+              <div className="avatar-overlay" style={{ position: 'absolute', bottom: 0, right: 0, background: '#0284c7', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '2px solid white' }}>
+                <Camera size={16} />
+              </div>
+              <input type="file" id="avatar-upload" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+            </div>
             <h2>{displayUsername}</h2>
             <p>{user.email}</p>
           </div>

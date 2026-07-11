@@ -1,0 +1,884 @@
+[
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "booking_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "room_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "booking_type",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 20,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "check_in_datetime",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "check_out_datetime",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "booking_details",
+    "COLUMN_NAME": "price",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "user_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "hotel_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "total_amount",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "booking_status",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "created_at",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "guest_count",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "refund_amount",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "guest_cccd",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 20,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "deposit_amount",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "remaining_amount",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "promotion_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "discount_percent",
+    "DATA_TYPE": "float",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "bookings",
+    "COLUMN_NAME": "discount_amount",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "ho_lot",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 100,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "ten",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "loi_nhan",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "created_at",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "email",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "phone",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 20,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "contact_messages",
+    "COLUMN_NAME": "status",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotel_images",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotel_images",
+    "COLUMN_NAME": "hotel_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotel_images",
+    "COLUMN_NAME": "image_url",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotel_images",
+    "COLUMN_NAME": "is_thumbnail",
+    "DATA_TYPE": "bit",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "owner_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "name",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "description",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "facilities_text",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "address",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "status",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "hotels",
+    "COLUMN_NAME": "images_text",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "notifications",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "notifications",
+    "COLUMN_NAME": "user_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "notifications",
+    "COLUMN_NAME": "title",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "notifications",
+    "COLUMN_NAME": "message",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "notifications",
+    "COLUMN_NAME": "is_read",
+    "DATA_TYPE": "bit",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "notifications",
+    "COLUMN_NAME": "created_at",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "payments",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "payments",
+    "COLUMN_NAME": "booking_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "payments",
+    "COLUMN_NAME": "amount",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "payments",
+    "COLUMN_NAME": "payment_method",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "payments",
+    "COLUMN_NAME": "payment_status",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "payments",
+    "COLUMN_NAME": "verified_by",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "promotions",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "promotions",
+    "COLUMN_NAME": "hotel_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "promotions",
+    "COLUMN_NAME": "discount_code",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "promotions",
+    "COLUMN_NAME": "discount_percent",
+    "DATA_TYPE": "float",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "promotions",
+    "COLUMN_NAME": "valid_until",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "booking_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 1
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "user_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "rating_score",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "comment",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "created_at",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "status",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 20,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "reviews",
+    "COLUMN_NAME": "reply_comment",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "roles",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "roles",
+    "COLUMN_NAME": "role_name",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "hotel_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "name",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 100,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "room_amenities_text",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": -1,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "base_price",
+    "DATA_TYPE": "decimal",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "capacity",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "adult_capacity",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "room_types",
+    "COLUMN_NAME": "child_capacity",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "rooms",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "rooms",
+    "COLUMN_NAME": "room_type_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "rooms",
+    "COLUMN_NAME": "room_number",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "rooms",
+    "COLUMN_NAME": "status",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 50,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "user_profiles",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "user_profiles",
+    "COLUMN_NAME": "user_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 1
+  },
+  {
+    "TABLE_NAME": "user_profiles",
+    "COLUMN_NAME": "avatar_url",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "user_profiles",
+    "COLUMN_NAME": "address",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "user_promotions",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "user_promotions",
+    "COLUMN_NAME": "user_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 1
+  },
+  {
+    "TABLE_NAME": "user_promotions",
+    "COLUMN_NAME": "promotion_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 1
+  },
+  {
+    "TABLE_NAME": "user_promotions",
+    "COLUMN_NAME": "is_used",
+    "DATA_TYPE": "bit",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "user_promotions",
+    "COLUMN_NAME": "saved_at",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 1,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "role_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "email",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 100,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 1
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "password_hash",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 255,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "phone",
+    "DATA_TYPE": "varchar",
+    "CHARACTER_MAXIMUM_LENGTH": 20,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "created_at",
+    "DATA_TYPE": "datetime",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "is_blocked",
+    "DATA_TYPE": "bit",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "NO",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "full_name",
+    "DATA_TYPE": "nvarchar",
+    "CHARACTER_MAXIMUM_LENGTH": 100,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  },
+  {
+    "TABLE_NAME": "users",
+    "COLUMN_NAME": "hotel_id",
+    "DATA_TYPE": "int",
+    "CHARACTER_MAXIMUM_LENGTH": null,
+    "IS_NULLABLE": "YES",
+    "IsPrimaryKey": 0,
+    "IsUnique": 0
+  }
+]

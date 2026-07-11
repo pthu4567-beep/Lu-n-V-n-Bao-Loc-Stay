@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import './Footer.css';
 
 const Footer = () => {
@@ -21,11 +22,11 @@ const Footer = () => {
           <div className="footer-col">
             <h3>Hỗ trợ khách hàng</h3>
             <ul className="footer-links">
-              <li><a href="#">Trung tâm trợ giúp</a></li>
-              <li><a href="#">Chính sách bảo mật</a></li>
-              <li><a href="#">Quy định hủy phòng</a></li>
-              <li><a href="#">Hướng dẫn thanh toán</a></li>
-              <li><a href="#">Câu hỏi thường gặp</a></li>
+              <li><Link to="/help-center">Trung tâm trợ giúp</Link></li>
+              <li><Link to="/privacy-policy">Chính sách bảo mật</Link></li>
+              <li><Link to="/cancellation-policy">Quy định hủy phòng</Link></li>
+              <li><Link to="/payment-guide">Hướng dẫn thanh toán</Link></li>
+              <li><Link to="/faq">Câu hỏi thường gặp</Link></li>
             </ul>
           </div>
 
@@ -33,7 +34,6 @@ const Footer = () => {
             <h3>Hình thức thanh toán</h3>
             <div className="payment-logos">
               <div className="payment-logo">VietQR</div>
-              <div className="payment-logo">VNPay</div>
             </div>
             <h3 className="mt-4">Kết nối với chúng tôi</h3>
             <div className="social-links">

@@ -17,6 +17,7 @@
     "jsonwebtoken": "^9.0.3",
     "msnodesqlv8": "^5.2.0",
     "mssql": "^12.5.4",
+    "multer": "^2.2.0",
     "nodemailer": "^9.0.1",
     "socket.io": "^4.8.3"
   }

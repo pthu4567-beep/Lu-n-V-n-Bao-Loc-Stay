@@ -12,18 +12,64 @@ const Checkout = () => {
   const { id: bookingId } = useParams();
   const [searchParams] = useSearchParams();
   
-  const amount = parseInt(searchParams.get('amount')) || 0;
-  const total = parseInt(searchParams.get('total')) || amount;
+  const initialAmount = parseInt(searchParams.get('amount')) || 0;
+  const initialTotal = parseInt(searchParams.get('total')) || initialAmount;
   const hotelName = searchParams.get('hotel') || 'Homestay';
   const roomName = searchParams.get('room') || 'Phòng Tiêu Chuẩn';
 
+  const [amount, setAmount] = useState(initialAmount);
+  const [total, setTotal] = useState(initialTotal);
   const [copied, setCopied] = useState('');
   const [discount, setDiscount] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState(0);
+
+  const [savedVouchers, setSavedVouchers] = useState([]);
+  const [showVoucherList, setShowVoucherList] = useState(false);
+
+  React.useEffect(() => {
+    const fetchVouchers = async () => {
+      try {
+        const token = sessionStorage.getItem('token');
+        if (!token) return;
+        const res = await axios.get('http://localhost:5000/api/users/my-promotions', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success) {
+          setSavedVouchers(res.data.data.filter(v => !v.is_used && new Date(v.valid_until) >= new Date()));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchVouchers();
+  }, []);
 
   const handleCopy = (text, type) => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(''), 2000);
+  };
+
+  const handleApplyDiscount = async () => {
+    if (!discount.trim()) return showAlert('Lỗi', 'Vui lòng nhập mã giảm giá', 'warning');
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await axios.post(`http://localhost:5000/api/bookings/${bookingId}/apply-promotion`, 
+        { discount_code: discount },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.success) {
+        setDiscountPercent(res.data.discount_percent);
+        setDiscountAmount(res.data.discount_amount);
+        setAmount(res.data.new_deposit);
+        // Do API đang tính new_deposit là 30% của newTotal
+        showAlert('Thành công', res.data.message, 'success');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Mã giảm giá không hợp lệ';
+      showAlert('Lỗi', msg, 'error');
+    }
   };
 
   const transferMsg = `THANH TOAN DH ${bookingId}`;
@@ -80,24 +126,53 @@ const Checkout = () => {
               </div>
             </div>
 
-            <div className="discount-section">
+            <div className="discount-section" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <input 
                 type="text" 
                 placeholder="Nhập mã giảm giá..." 
                 value={discount}
                 onChange={(e) => setDiscount(e.target.value)}
+                style={{ flex: 1 }}
               />
-              <button className="btn btn-outline">Áp dụng</button>
+              <button className="btn btn-outline" style={{ padding: '0 15px' }} onClick={() => setShowVoucherList(!showVoucherList)}>Ví Voucher</button>
+              <button className="btn btn-primary" onClick={handleApplyDiscount}>Áp dụng</button>
             </div>
 
-            <div className="total-section">
+            {showVoucherList && (
+              <div className="voucher-dropdown" style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', marginTop: '10px', border: '1px solid #e2e8f0' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#0f172a' }}>Voucher của bạn</h4>
+                {savedVouchers.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Bạn chưa có voucher nào hoặc voucher đã hết hạn/đã sử dụng.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {savedVouchers.map(v => (
+                      <div key={v.saved_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                        <div>
+                          <strong style={{ color: '#0f172a', fontSize: '15px' }}>{v.discount_code}</strong> 
+                          <span style={{ color: '#ef4444', fontWeight: '600', marginLeft: '5px' }}>- Giảm {v.discount_percent}%</span>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            {v.hotel_id ? `Dành cho ${v.hotel_name}` : 'Áp dụng Toàn hệ thống'}
+                          </div>
+                        </div>
+                        <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={() => {
+                          setDiscount(v.discount_code);
+                          setShowVoucherList(false);
+                        }}>Chọn</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="total-section" style={{ marginTop: '20px' }}>
               <div className="summary-item">
                 <span>Tổng tiền phòng</span>
                 <span>{total.toLocaleString('vi-VN')} ₫</span>
               </div>
-              <div className="summary-item">
-                <span>Giảm giá</span>
-                <span>0 ₫</span>
+              <div className="summary-item" style={{ color: discountAmount > 0 ? '#16a34a' : 'inherit' }}>
+                <span>Giảm giá {discountPercent > 0 ? `(${discountPercent}%)` : ''}</span>
+                <span>{discountAmount > 0 ? '-' : ''}{discountAmount.toLocaleString('vi-VN')} ₫</span>
               </div>
               <div className="summary-item grand-total">
                 <span>Số tiền cần cọc</span>

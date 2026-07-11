@@ -42,6 +42,7 @@ const AdminDashboard = () => {
   const [rooms, setRooms] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [reviewsList, setReviewsList] = useState([]);
+  const [promotionsList, setPromotionsList] = useState([]);
   const [replyingReviewId, setReplyingReviewId] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,12 @@ const AdminDashboard = () => {
 
   const [showEditRoomModal, setShowEditRoomModal] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
+
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [newPromo, setNewPromo] = useState({ hotel_id: '', discount_code: '', discount_percent: '', valid_until: '' });
+
+  const [showEditPromoModal, setShowEditPromoModal] = useState(false);
+  const [editingPromo, setEditingPromo] = useState(null);
 
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInBookingId, setCheckInBookingId] = useState(null);
@@ -162,6 +169,18 @@ const AdminDashboard = () => {
             headers: { Authorization: `Bearer ${token}` }
           });
           setReviewsList(res.data.data || []);
+        } else if (activeTab === 'promotions') {
+          const res = await axios.get('http://localhost:5000/api/admin/catalog/promotions', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setPromotionsList(res.data.data || []);
+          
+          if (homestays.length === 0) {
+            const hRes = await axios.get('http://localhost:5000/api/admin/catalog/hotels', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            setHomestays(hRes.data.data || hRes.data || []);
+          }
         }
       } catch (err) {
         console.error('Lỗi tải dữ liệu dashboard:', err);
@@ -220,14 +239,16 @@ const AdminDashboard = () => {
   };
 
   // Duyệt hoàn tiền
-  const handleApproveRefund = async (bookingId) => {
+  const handleApproveRefund = async (order) => {
+    const bookingId = order.bookingId || order.id;
     const token = sessionStorage.getItem('token');
     if (!token) return;
 
-    const confirmResult = await showConfirm('Duyệt hoàn tiền', `Bạn có chắc chắn muốn duyệt hoàn tiền và trả phòng cho đơn hàng #${bookingId}?`);
-    if (!confirmResult.isConfirmed) {
-      return;
-    }
+    const amount = order?.refund_amount || 0;
+    const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+
+    const confirmResult = await showConfirm('Duyệt hoàn tiền', `Bạn chắc chắn muốn duyệt hoàn tiền ${formattedAmount} cho đơn hàng #${bookingId}?`);
+    if (!confirmResult.isConfirmed) return;
 
     try {
       const res = await axios.put(`http://localhost:5000/api/admin/orders/bookings/${bookingId}/approve-refund`, {}, {
@@ -599,6 +620,54 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSaveNewPromo = async (e) => {
+    e.preventDefault();
+    const token = sessionStorage.getItem('token');
+    try {
+      await axios.post('http://localhost:5000/api/admin/catalog/promotions', newPromo, { headers: { Authorization: `Bearer ${token}` } });
+      showToast('Thêm khuyến mãi thành công', 'success');
+      setShowPromoModal(false);
+      setNewPromo({ hotel_id: '', discount_code: '', discount_percent: '', valid_until: '' });
+      const resList = await axios.get('http://localhost:5000/api/admin/catalog/promotions', { headers: { Authorization: `Bearer ${token}` } });
+      setPromotionsList(resList.data.data || []);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi khi thêm khuyến mãi', 'error');
+    }
+  };
+
+  const handleEditPromo = (promo) => {
+    setEditingPromo({ ...promo, valid_until: new Date(promo.valid_until).toISOString().substring(0, 16) });
+    setShowEditPromoModal(true);
+  };
+
+  const handleSaveEditPromo = async (e) => {
+    e.preventDefault();
+    const token = sessionStorage.getItem('token');
+    try {
+      await axios.put(`http://localhost:5000/api/admin/catalog/promotions/${editingPromo.id}`, editingPromo, { headers: { Authorization: `Bearer ${token}` } });
+      showToast('Cập nhật khuyến mãi thành công', 'success');
+      setShowEditPromoModal(false);
+      const resList = await axios.get('http://localhost:5000/api/admin/catalog/promotions', { headers: { Authorization: `Bearer ${token}` } });
+      setPromotionsList(resList.data.data || []);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi khi cập nhật khuyến mãi', 'error');
+    }
+  };
+
+  const handleDeletePromo = async (id) => {
+    const confirm = await showConfirm('Xóa Khuyến mãi', 'Bạn có chắc chắn muốn xóa khuyến mãi này?');
+    if (!confirm.isConfirmed) return;
+    const token = sessionStorage.getItem('token');
+    try {
+      await axios.delete(`http://localhost:5000/api/admin/catalog/promotions/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      showToast('Xóa khuyến mãi thành công', 'success');
+      const resList = await axios.get('http://localhost:5000/api/admin/catalog/promotions', { headers: { Authorization: `Bearer ${token}` } });
+      setPromotionsList(resList.data.data || []);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi khi xóa khuyến mãi', 'error');
+    }
+  };
+
   const submitRoom = async () => {
     const token = sessionStorage.getItem('token');
     if (!newRoom.room_type_id || !newRoom.room_number) {
@@ -685,6 +754,12 @@ const AdminDashboard = () => {
                 onClick={() => setActiveTab('rooms')}
               >
                 <Layers size={18} /> Phòng
+              </button>
+              <button
+                className={`nav-btn ${activeTab === 'promotions' ? 'active' : ''}`}
+                onClick={() => setActiveTab('promotions')}
+              >
+                <Award size={18} /> Quản lý Khuyến mãi
               </button>
             </>
           )}
@@ -893,10 +968,10 @@ const AdminDashboard = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {validRevenue.map(p => {
+                            {validRevenue.map((p, index) => {
                               const st = p.status || p.payment_status || 'pending';
                               return (
-                                <tr key={p.id || p.bookingId}>
+                                <tr key={`${p.id || p.bookingId}-${index}`}>
                                   <td>#{p.id || p.bookingId}</td>
                                   <td>{p.guest_name || p.userEmail}</td>
                                   <td>{p.homestayName || 'Homestay'}</td>
@@ -1010,7 +1085,7 @@ const AdminDashboard = () => {
                           if (filterPayment === 'confirmed') return payStatus === 'paid' || payStatus === 'confirmed' || payStatus === 'completed' || payStatus === 'checked_in';
                           if (filterPayment === 'cancelled') return payStatus === 'cancelled';
                           return true;
-                        }).map(pay => {
+                        }).map((pay, index) => {
                           const payStatus = pay.status || pay.payment_status || 'pending';
                           let badgeClass = 'status-pending';
                           let badgeText = 'Chờ duyệt';
@@ -1076,7 +1151,7 @@ const AdminDashboard = () => {
                                       <button
                                         className="btn btn-sm action-btn"
                                         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, borderRadius: '8px', padding: '6px 12px', boxShadow: '0 2px 4px rgba(249, 115, 22, 0.15)', transition: 'all 0.2s', border: 'none', background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', color: 'white' }}
-                                        onClick={() => handleApproveRefund(bId)}
+                                        onClick={() => handleApproveRefund(pay)}
                                         onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                                         onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
                                       >
@@ -1580,6 +1655,61 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'promotions' && (
+            <div className="tab-pane">
+              <div className="dashboard-card">
+                <div className="dashboard-header-flex">
+                  <h2 className="dashboard-title">Quản lý Khuyến mãi (Mã Giảm Giá)</h2>
+                  <button className="btn btn-primary action-btn" onClick={() => setShowPromoModal(true)}>
+                    <Plus size={16} style={{ display: 'inline', marginRight: '5px' }} /> Thêm Khuyến mãi
+                  </button>
+                </div>
+                {loading ? <p>Đang tải dữ liệu...</p> : (
+                  <div className="table-responsive">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Khách sạn</th>
+                          <th>Mã Giảm Giá</th>
+                          <th>Phần Trăm Giảm</th>
+                          <th>Hạn Sử Dụng</th>
+                          <th>Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {promotionsList.map(p => {
+                          const dateObj = new Date(p.valid_until);
+                          const isExpired = dateObj < new Date();
+                          return (
+                            <tr key={p.id}>
+                              <td>#{p.id}</td>
+                              <td style={{ fontWeight: 600 }}>{p.hotel_id ? p.hotel_name : 'Toàn hệ thống'}</td>
+                              <td style={{ fontWeight: 'bold', color: '#0f172a' }}>{p.discount_code}</td>
+                              <td style={{ color: '#16a34a', fontWeight: 'bold' }}>{p.discount_percent}%</td>
+                              <td>
+                                <span style={{ color: isExpired ? '#dc2626' : '#16a34a', fontWeight: 500 }}>
+                                  {formatLocalDateOnly(p.valid_until)} {isExpired ? '(Đã hết hạn)' : ''}
+                                </span>
+                              </td>
+                              <td>
+                                <button className="btn btn-outline btn-sm action-btn" onClick={() => handleEditPromo(p)}>Sửa</button>
+                                <button className="btn btn-danger btn-sm action-btn" style={{ marginLeft: '4px' }} onClick={() => handleDeletePromo(p.id)}>Xóa</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {promotionsList.length === 0 && (
+                          <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Không có mã khuyến mãi nào.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -2022,6 +2152,84 @@ const AdminDashboard = () => {
               <button type="button" className="btn btn-outline" onClick={() => setShowRoleModal(false)}>Hủy</button>
               <button type="button" className="btn btn-primary" onClick={submitUpdateRole}>Lưu Thay Đổi</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROMO MODAL */}
+      {showPromoModal && (
+        <div className="modal-overlay" onClick={() => setShowPromoModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Thêm Khuyến mãi mới</h2>
+              <button className="close-btn" onClick={() => setShowPromoModal(false)}><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSaveNewPromo}>
+              {user.roleId === 1 && (
+                <div className="form-group">
+                  <label>Khách sạn áp dụng</label>
+                  <select value={newPromo.hotel_id} onChange={(e) => setNewPromo({ ...newPromo, hotel_id: e.target.value })} className="form-control">
+                    <option value="">Toàn hệ thống (Tất cả Khách sạn)</option>
+                    {homestays.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {user.roleId === 2 && (
+                <div className="form-group">
+                  <label>Khách sạn áp dụng <span style={{ color: 'red' }}>*</span></label>
+                  <select required value={newPromo.hotel_id} onChange={(e) => setNewPromo({ ...newPromo, hotel_id: e.target.value })} className="form-control">
+                    <option value="">Chọn khách sạn</option>
+                    {homestays.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="form-group">
+                <label>Mã giảm giá <span style={{ color: 'red' }}>*</span></label>
+                <input type="text" required value={newPromo.discount_code} onChange={(e) => setNewPromo({ ...newPromo, discount_code: e.target.value })} className="form-control" placeholder="Ví dụ: GIAM10" />
+              </div>
+              <div className="form-group">
+                <label>Phần trăm giảm (%) <span style={{ color: 'red' }}>*</span></label>
+                <input type="number" step="0.1" required value={newPromo.discount_percent} onChange={(e) => setNewPromo({ ...newPromo, discount_percent: e.target.value })} className="form-control" placeholder="10" />
+              </div>
+              <div className="form-group">
+                <label>Ngày hết hạn <span style={{ color: 'red' }}>*</span></label>
+                <input type="datetime-local" required value={newPromo.valid_until} onChange={(e) => setNewPromo({ ...newPromo, valid_until: e.target.value })} className="form-control" />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowPromoModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Thêm mới</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PROMO MODAL */}
+      {showEditPromoModal && editingPromo && (
+        <div className="modal-overlay" onClick={() => setShowEditPromoModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Sửa Khuyến mãi</h2>
+              <button className="close-btn" onClick={() => setShowEditPromoModal(false)}><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSaveEditPromo}>
+              <div className="form-group">
+                <label>Mã giảm giá <span style={{ color: 'red' }}>*</span></label>
+                <input type="text" required value={editingPromo.discount_code} onChange={(e) => setEditingPromo({ ...editingPromo, discount_code: e.target.value })} className="form-control" />
+              </div>
+              <div className="form-group">
+                <label>Phần trăm giảm (%) <span style={{ color: 'red' }}>*</span></label>
+                <input type="number" step="0.1" required value={editingPromo.discount_percent} onChange={(e) => setEditingPromo({ ...editingPromo, discount_percent: e.target.value })} className="form-control" />
+              </div>
+              <div className="form-group">
+                <label>Ngày hết hạn <span style={{ color: 'red' }}>*</span></label>
+                <input type="datetime-local" required value={editingPromo.valid_until} onChange={(e) => setEditingPromo({ ...editingPromo, valid_until: e.target.value })} className="form-control" />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditPromoModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Lưu thay đổi</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

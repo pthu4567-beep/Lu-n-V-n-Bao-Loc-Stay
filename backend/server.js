@@ -1,4 +1,7 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const { sql, poolPromise } = require('./db');
 const bcrypt = require('bcryptjs');
@@ -13,6 +16,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'baolocstay_secret_key';
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const uploadDir = path.join(__dirname, 'uploads', 'avatars');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir)
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, uniqueSuffix + path.extname(file.originalname))
+    }
+});
+const upload = multer({ storage: storage });
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} ${req.originalUrl}`);
@@ -258,13 +279,13 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
                 `);
             }
 
-            // 4. Tạo bản ghi thanh toán ở trạng thái awaiting_confirmation
+            // 4. Tạo bản ghi thanh toán ở trạng thái pending
             const payReq = new sql.Request(transaction);
             payReq.input('bId', sql.Int, newBookingId);
             payReq.input('amount', sql.Decimal(18, 2), depositAmount);
             await payReq.query(`
                 INSERT INTO payments (booking_id, amount, payment_method, payment_status)
-                VALUES (@bId, @amount, 'QR_Transfer', 'awaiting_confirmation')
+                VALUES (@bId, @amount, 'QR_Transfer', 'pending')
             `);
 
             await transaction.commit();
@@ -392,7 +413,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         const request = pool.request();
         request.input('email', sql.VarChar, email.trim());
-        const result = await request.query('SELECT id, role_id, email, password_hash, phone, full_name, hotel_id FROM users WHERE email = @email');
+        const result = await request.query('SELECT id, role_id, email, password_hash, phone, full_name, hotel_id, avatar FROM users WHERE email = @email');
 
         if (result.recordset.length === 0) {
             return res.status(400).json({ error: 'Email hoặc mật khẩu không chính xác!' });
@@ -417,11 +438,42 @@ app.post('/api/auth/login', async (req, res) => {
             success: true,
             message: 'Đăng nhập thành công!',
             token,
-            user: { id: user.id, email: user.email, roleId: user.role_id, phone: user.phone, full_name: user.full_name, hotelId: user.hotel_id }
+            user: { id: user.id, email: user.email, roleId: user.role_id, phone: user.phone, full_name: user.full_name, hotelId: user.hotel_id, avatar: user.avatar }
         });
     } catch (err) {
         console.error('LỖI ĐĂNG NHẬP:', err.message);
         res.status(500).json({ error: 'Lỗi server khi đăng nhập: ' + err.message });
+    }
+});
+
+
+// ==========================================
+// API Thay đổi Avatar
+// ==========================================
+app.post('/api/users/avatar', verifyToken, upload.single('avatar'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Không có file nào được tải lên.' });
+        }
+        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+        
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('userId', sql.Int, req.user.id);
+        request.input('avatarUrl', sql.VarChar, avatarUrl);
+        await request.query('UPDATE users SET avatar = @avatarUrl WHERE id = @userId');
+        
+        const userRes = await pool.request().input('userId', sql.Int, req.user.id).query('SELECT id, role_id, email, phone, full_name, hotel_id, avatar FROM users WHERE id = @userId');
+        const updatedUser = userRes.recordset[0];
+        
+        res.json({
+            success: true,
+            message: 'Cập nhật avatar thành công!',
+            user: { id: updatedUser.id, email: updatedUser.email, roleId: updatedUser.role_id, phone: updatedUser.phone, full_name: updatedUser.full_name, hotelId: updatedUser.hotel_id, avatar: updatedUser.avatar }
+        });
+    } catch (err) {
+        console.error('LỖI UPLOAD AVATAR:', err.message);
+        res.status(500).json({ error: 'Lỗi server khi cập nhật avatar: ' + err.message });
     }
 });
 
@@ -561,13 +613,13 @@ app.put('/api/users/profile', verifyToken, async (req, res) => {
         `);
 
         // Lấy lại thông tin mới nhất
-        const userRes = await pool.request().input('userId', sql.Int, req.user.id).query('SELECT id, email, role_id, phone, full_name FROM users WHERE id = @userId');
+        const userRes = await pool.request().input('userId', sql.Int, req.user.id).query('SELECT id, email, role_id, phone, full_name, avatar FROM users WHERE id = @userId');
         const updatedUser = userRes.recordset[0];
 
         res.json({
             success: true,
             message: 'Cập nhật hồ sơ thành công!',
-            user: { id: updatedUser.id, email: updatedUser.email, roleId: updatedUser.role_id, phone: updatedUser.phone, full_name: updatedUser.full_name }
+            user: { id: updatedUser.id, email: updatedUser.email, roleId: updatedUser.role_id, phone: updatedUser.phone, full_name: updatedUser.full_name, avatar: updatedUser.avatar }
         });
     } catch (err) {
         console.error('LỖI CẬP NHẬT PROFILE:', err.message);
@@ -705,6 +757,200 @@ app.get('/api/users/my-bookings', verifyToken, async (req, res) => {
 });
 
 // ==========================================
+// API Khuyến Mãi (Khách hàng)
+// ==========================================
+
+// Lấy danh sách khuyến mãi (tất cả hoặc theo hotel)
+app.get('/api/promotions', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query(`
+            SELECT p.id, p.hotel_id, h.name as hotel_name, p.discount_code, p.discount_percent, p.valid_until
+            FROM promotions p
+            LEFT JOIN hotels h ON p.hotel_id = h.id
+            WHERE p.valid_until >= GETDATE()
+            ORDER BY p.discount_percent DESC
+        `);
+        res.json({ success: true, data: result.recordset });
+    } catch (err) {
+        console.error('LỖI API /api/promotions:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Lấy ví voucher của user
+app.get('/api/users/my-promotions', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('uId', sql.Int, userId)
+            .query(`
+                SELECT up.id as saved_id, up.is_used, up.saved_at, 
+                       p.id as promotion_id, p.discount_code, p.discount_percent, p.valid_until,
+                       h.name as hotel_name, p.hotel_id
+                FROM user_promotions up
+                JOIN promotions p ON up.promotion_id = p.id
+                LEFT JOIN hotels h ON p.hotel_id = h.id
+                WHERE up.user_id = @uId
+                ORDER BY up.is_used ASC, p.valid_until ASC
+            `);
+        res.json({ success: true, data: result.recordset });
+    } catch (err) {
+        console.error('LỖI API /api/users/my-promotions:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Lưu voucher
+app.post('/api/promotions/save', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { promotion_id } = req.body;
+        if (!promotion_id) return res.status(400).json({ success: false, error: 'Thiếu promotion_id' });
+        
+        const pool = await poolPromise;
+        
+        // Ktra xem promo có tồn tại không
+        const check = await pool.request().input('pId', sql.Int, promotion_id).query('SELECT id FROM promotions WHERE id = @pId');
+        if (check.recordset.length === 0) return res.status(404).json({ success: false, error: 'Voucher không tồn tại' });
+        
+        // Lưu
+        await pool.request()
+            .input('uId', sql.Int, userId)
+            .input('pId', sql.Int, promotion_id)
+            .query(`
+                IF NOT EXISTS (SELECT 1 FROM user_promotions WHERE user_id = @uId AND promotion_id = @pId)
+                BEGIN
+                    INSERT INTO user_promotions (user_id, promotion_id) VALUES (@uId, @pId)
+                END
+            `);
+        res.json({ success: true, message: 'Đã lưu voucher vào ví' });
+    } catch (err) {
+        console.error('LỖI API /api/promotions/save:', err);
+        res.status(500).json({ success: false, error: 'Đã xảy ra lỗi hoặc bạn đã lưu mã này rồi' });
+    }
+});
+
+// ==========================================
+// API Áp dụng Mã Khuyến Mãi cho đơn hàng
+// ==========================================
+app.post('/api/bookings/:id/apply-promotion', verifyToken, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const { discount_code } = req.body;
+        const userId = req.user.id;
+
+        if (!discount_code) {
+            return res.status(400).json({ error: 'Vui lòng nhập mã giảm giá' });
+        }
+
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
+
+        // Kiểm tra đơn hàng thuộc về user
+        const checkBooking = await pool.request()
+            .input('bId', sql.Int, bookingId)
+            .query('SELECT hotel_id, user_id, total_amount, booking_status, promotion_id FROM bookings WHERE id = @bId');
+
+        if (checkBooking.recordset.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+        }
+
+        const booking = checkBooking.recordset[0];
+        if (String(booking.user_id) !== String(userId)) {
+            return res.status(403).json({ error: 'Không có quyền truy cập đơn hàng này' });
+        }
+        
+        if (booking.booking_status !== 'pending_payment') {
+            return res.status(400).json({ error: 'Chỉ có thể áp dụng mã giảm giá khi chưa thanh toán' });
+        }
+        
+        if (booking.promotion_id) {
+            return res.status(400).json({ error: 'Đơn hàng này đã áp dụng mã giảm giá' });
+        }
+
+        // Kiểm tra mã giảm giá
+        const checkPromo = await pool.request()
+            .input('code', sql.VarChar, discount_code)
+            .input('hotelId', sql.Int, booking.hotel_id)
+            .query('SELECT id, discount_percent, valid_until FROM promotions WHERE discount_code = @code AND hotel_id = @hotelId');
+
+        if (checkPromo.recordset.length === 0) {
+            return res.status(404).json({ error: 'Mã giảm giá không hợp lệ cho Homestay này' });
+        }
+
+        const promo = checkPromo.recordset[0];
+        if (new Date(promo.valid_until) < new Date()) {
+            return res.status(400).json({ error: 'Mã giảm giá đã hết hạn' });
+        }
+
+        // Kiểm tra xem user đã dùng mã này chưa
+        const checkUsed = await pool.request()
+            .input('uId', sql.Int, userId)
+            .input('pId', sql.Int, promo.id)
+            .query('SELECT is_used FROM user_promotions WHERE user_id = @uId AND promotion_id = @pId');
+            
+        if (checkUsed.recordset.length > 0 && checkUsed.recordset[0].is_used) {
+            return res.status(400).json({ error: 'Bạn đã sử dụng mã giảm giá này rồi' });
+        }
+
+        // Tính toán lại tiền
+        const discount_percent = promo.discount_percent;
+        const discount_amount = (booking.total_amount * discount_percent) / 100;
+        const newTotal = booking.total_amount - discount_amount;
+        const newDeposit = newTotal * 0.3;
+        const newRemaining = newTotal - newDeposit;
+
+        // Cập nhật Database
+        await pool.request()
+            .input('bId', sql.Int, bookingId)
+            .input('promoId', sql.Int, promo.id)
+            .input('discPercent', sql.Float, discount_percent)
+            .input('discAmount', sql.Decimal(18,2), discount_amount)
+            .input('deposit', sql.Decimal(18,2), newDeposit)
+            .input('remaining', sql.Decimal(18,2), newRemaining)
+            .input('uId', sql.Int, userId)
+            .query(`
+                UPDATE bookings 
+                SET promotion_id = @promoId, 
+                    discount_percent = @discPercent, 
+                    discount_amount = @discAmount,
+                    deposit_amount = @deposit,
+                    remaining_amount = @remaining
+                WHERE id = @bId;
+
+                UPDATE payments
+                SET amount = @deposit
+                WHERE booking_id = @bId;
+                
+                -- Đánh dấu là đã sử dụng
+                IF EXISTS (SELECT 1 FROM user_promotions WHERE user_id = @uId AND promotion_id = @promoId)
+                BEGIN
+                    UPDATE user_promotions SET is_used = 1 WHERE user_id = @uId AND promotion_id = @promoId
+                END
+                ELSE
+                BEGIN
+                    INSERT INTO user_promotions (user_id, promotion_id, is_used) VALUES (@uId, @promoId, 1)
+                END
+            `);
+
+        res.json({
+            success: true,
+            message: 'Áp dụng mã giảm giá thành công',
+            discount_percent,
+            discount_amount,
+            new_deposit: newDeposit,
+            new_remaining: newRemaining
+        });
+
+    } catch (err) {
+        console.error('LỖI API APPLY PROMOTION:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
 // API Xuất Hóa Đơn (Invoice) cho đơn hàng
 // ==========================================
 app.get('/api/bookings/:id/invoice', verifyToken, async (req, res) => {
@@ -732,6 +978,7 @@ app.get('/api/bookings/:id/invoice', verifyToken, async (req, res) => {
         const result = await request.query(`
             SELECT TOP 1
                 b.id as booking_id, b.total_amount, b.deposit_amount, b.remaining_amount, b.booking_status, b.created_at,
+                b.discount_percent, b.discount_amount,
                 u.email as guest_email, u.phone as guest_phone,
                 SUBSTRING(u.email, 1, CHARINDEX('@', u.email) - 1) as guest_name,
                 h.name as homestay_name, h.address as homestay_address,

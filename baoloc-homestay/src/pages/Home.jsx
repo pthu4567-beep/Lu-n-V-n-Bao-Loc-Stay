@@ -128,43 +128,43 @@ const Home = () => {
   const seasonalDeals = [
     {
       id: 1,
-      title: 'Hè Rực Rỡ – Giảm 30%',
-      description: 'Đặt phòng từ 01/06 – 31/08 để nhận ưu đãi mùa hè siêu hấp dẫn!',
-      discount: '30%',
+      title: 'Khuyến mãi đặc biệt',
+      description: 'Nhập mã GIAM10 tại bước Thanh toán để được giảm 10% cho toàn bộ Homestay!',
+      discount: 'Giảm 10%',
       icon: <Sun size={28} />,
       color: '#f59e0b',
       bgColor: '#fef3c7',
-      period: '01/06 – 31/08'
+      period: 'Đến 31/12/2026'
     },
     {
       id: 2,
-      title: 'Giáng Sinh An Lành',
-      description: 'Mùa lễ hội – tặng đêm thứ 3 miễn phí khi đặt 2 đêm liên tiếp.',
-      discount: 'Tặng 1 đêm',
-      icon: <Snowflake size={28} />,
+      title: 'Hè Rực Rỡ',
+      description: 'Nhập mã MUAHE30 để nhận ưu đãi mùa hè siêu hấp dẫn lên đến 30%!',
+      discount: 'Giảm 30%',
+      icon: <TreePine size={28} />,
       color: '#3b82f6',
       bgColor: '#dbeafe',
-      period: '20/12 – 02/01'
+      period: 'Đến 31/08/2026'
     },
     {
       id: 3,
       title: 'Tết Nguyên Đán',
-      description: 'Giảm 20% cho gia đình đặt phòng sớm trước 15 ngày.',
-      discount: '20%',
-      icon: <TreePine size={28} />,
+      description: 'Nhập mã TET20 để được giảm ngay 20% cho gia đình đặt phòng dịp Tết.',
+      discount: 'Giảm 20%',
+      icon: <Sparkles size={28} />,
       color: '#ef4444',
       bgColor: '#fee2e2',
-      period: '10/01 – 15/02'
+      period: 'Đến 15/02/2027'
     },
     {
       id: 4,
       title: 'Flash Sale Cuối Tuần',
-      description: 'Mỗi thứ 6 – giảm 15% cho đặt phòng cuối tuần. Số lượng có hạn!',
-      discount: '15%',
-      icon: <Sparkles size={28} />,
+      description: 'Nhập mã TUAN15 – giảm 15% cho đặt phòng cuối tuần. Số lượng có hạn!',
+      discount: 'Giảm 15%',
+      icon: <Gift size={28} />,
       color: '#8b5cf6',
       bgColor: '#ede9fe',
-      period: 'Mỗi thứ 6 hàng tuần'
+      period: 'Đến 31/12/2026'
     }
   ];
 
