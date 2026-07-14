@@ -27,15 +27,16 @@ const CustomTooltip = ({ active, payload, label }) => {
 const RevenueChart = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [type, setType] = useState('year'); // 'week' hoặc 'year'
+  const [type, setType] = useState('year'); // 'week', 'month' hoặc 'year'
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
   useEffect(() => {
     const fetchRevenue = async () => {
       setLoading(true);
       const token = sessionStorage.getItem('token');
       try {
-        const res = await axios.get(`http://localhost:5000/api/admin/dashboard/revenue-chart?type=${type}&year=${selectedYear}`, {
+        const res = await axios.get(`http://localhost:5000/api/admin/dashboard/revenue-chart?type=${type}&year=${selectedYear}&month=${selectedMonth}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.data.success) {
@@ -48,7 +49,7 @@ const RevenueChart = () => {
       }
     };
     fetchRevenue();
-  }, [type, selectedYear]);
+  }, [type, selectedYear, selectedMonth]);
 
   return (
     <div className="revenue-chart-container">
@@ -72,9 +73,33 @@ const RevenueChart = () => {
           </button>
           
           <select 
-            value={type === 'year' ? selectedYear : 'none'} 
+            value={type === 'month' ? selectedMonth : 'none'} 
             onChange={(e) => {
-              setType('year');
+              setType('month');
+              setSelectedMonth(Number(e.target.value));
+            }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: type === 'month' ? '#eff6ff' : '#fff',
+              color: type === 'month' ? '#2563eb' : '#64748b',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              outline: 'none'
+            }}
+          >
+            {type !== 'month' && <option value="none" disabled>Chọn tháng</option>}
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+              <option key={m} value={m}>Tháng {m}</option>
+            ))}
+          </select>
+
+          <select 
+            value={type === 'year' || type === 'month' ? selectedYear : 'none'} 
+            onChange={(e) => {
+              if (type !== 'month') setType('year');
               setSelectedYear(Number(e.target.value));
             }}
             style={{
@@ -89,7 +114,7 @@ const RevenueChart = () => {
               outline: 'none'
             }}
           >
-            {type !== 'year' && <option value="none" disabled>Chọn năm</option>}
+            {type === 'week' && <option value="none" disabled>Chọn năm</option>}
             {[2024, 2025, 2026, 2027].map(y => (
               <option key={y} value={y}>Năm {y}</option>
             ))}

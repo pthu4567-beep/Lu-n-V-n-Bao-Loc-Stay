@@ -219,27 +219,3 @@ async function seedDatabase() {
 }
 
 seedDatabase();
-          .query(`INSERT INTO rooms (room_type_id, room_number, status) VALUES (@rtId, @num, 'available')`);
-      }
-    }
-
-// Commit Transaction nếu mọi thứ thành công
-await transaction.commit();
-console.log("Successfully seeded database with roles, users, 8 homestays (each has 1 owner), and multiple rooms!");
-process.exit(0);
-
-  } catch (error) {
-  console.error("Seeding failed, performing rollback...", error);
-  if (transaction) {
-    try {
-      await transaction.rollback();
-      console.log("Rollback completed.");
-    } catch (rbErr) {
-      console.error("Rollback failed:", rbErr);
-    }
-  }
-  process.exit(1);
-}
-}
-
-seedDatabase();

@@ -72,6 +72,11 @@ exports.updateHotel = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Bạn không có quyền sửa homestay này!' });
         }
 
+        let images_text_final = images_text || '';
+        if (req.file) {
+            images_text_final = `http://localhost:5000/uploads/hotels/${req.file.filename}`;
+        }
+
         const request = pool.request();
         request.input('id', sql.Int, hotelId);
         request.input('name', sql.NVarChar, name);
@@ -79,7 +84,7 @@ exports.updateHotel = async (req, res) => {
         request.input('facilities_text', sql.NVarChar, facilities_text || '');
         request.input('address', sql.NVarChar, address || '');
         request.input('status', sql.VarChar, status || 'active');
-        request.input('images_text', sql.NVarChar, images_text || '');
+        request.input('images_text', sql.NVarChar, images_text_final);
 
         const query = `
             UPDATE hotels 
@@ -173,7 +178,7 @@ exports.getRoomTypes = async (req, res) => {
 
 exports.createRoomType = async (req, res) => {
     try {
-        const { hotel_id, name, room_amenities_text, base_price, capacity } = req.body;
+        const { hotel_id, name, room_amenities_text, base_price, capacity, image_url } = req.body;
         const pool = await poolPromise;
         const userId = req.user.id;
         const roleId = req.user.roleId;
@@ -195,11 +200,12 @@ exports.createRoomType = async (req, res) => {
         request.input('room_amenities_text', sql.NVarChar, room_amenities_text || '');
         request.input('base_price', sql.Decimal(18, 2), base_price);
         request.input('capacity', sql.Int, capacity);
+        request.input('image_url', sql.VarChar, image_url || '');
 
         const query = `
-            INSERT INTO room_types (hotel_id, name, room_amenities_text, base_price, capacity)
+            INSERT INTO room_types (hotel_id, name, room_amenities_text, base_price, capacity, image_url)
             OUTPUT inserted.*
-            VALUES (@hotel_id, @name, @room_amenities_text, @base_price, @capacity)
+            VALUES (@hotel_id, @name, @room_amenities_text, @base_price, @capacity, @image_url)
         `;
         const result = await request.query(query);
         res.json({ success: true, message: 'Thêm loại phòng thành công', data: result.recordset[0] });
@@ -212,7 +218,7 @@ exports.createRoomType = async (req, res) => {
 exports.updateRoomType = async (req, res) => {
     try {
         const roomTypeId = parseInt(req.params.id);
-        const { name, room_amenities_text, base_price, capacity } = req.body;
+        const { name, room_amenities_text, base_price, capacity, image_url } = req.body;
         const pool = await poolPromise;
         const userId = req.user.id;
         const roleId = req.user.roleId;
@@ -231,16 +237,29 @@ exports.updateRoomType = async (req, res) => {
             }
         }
 
+        let image_url_final = image_url || '';
+        let amenities_images_text_final = req.body.amenities_images_text || '';
+
+        if (req.files && req.files['image'] && req.files['image'][0]) {
+            image_url_final = `http://localhost:5000/uploads/hotels/${req.files['image'][0].filename}`;
+        }
+        if (req.files && req.files['amenity_images'] && req.files['amenity_images'].length > 0) {
+            const uploadedUrls = req.files['amenity_images'].map(file => `http://localhost:5000/uploads/hotels/${file.filename}`);
+            amenities_images_text_final = JSON.stringify(uploadedUrls);
+        }
+
         const request = pool.request();
         request.input('id', sql.Int, roomTypeId);
         request.input('name', sql.NVarChar, name);
         request.input('room_amenities_text', sql.NVarChar, room_amenities_text || '');
         request.input('base_price', sql.Decimal(18, 2), base_price);
         request.input('capacity', sql.Int, capacity);
+        request.input('image_url', sql.VarChar, image_url_final);
+        request.input('amenities_images_text', sql.NVarChar, amenities_images_text_final);
 
         await request.query(`
             UPDATE room_types 
-            SET name=@name, room_amenities_text=@room_amenities_text, base_price=@base_price, capacity=@capacity
+            SET name=@name, room_amenities_text=@room_amenities_text, base_price=@base_price, capacity=@capacity, image_url=@image_url, amenities_images_text=@amenities_images_text
             WHERE id = @id
         `);
         res.json({ success: true, message: 'Cập nhật loại phòng thành công' });

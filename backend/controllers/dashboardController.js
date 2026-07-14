@@ -219,6 +219,62 @@ exports.getRevenueChart = async (req, res) => {
             return res.json({ success: true, data: chartData });
         }
 
+        if (type === 'month') {
+            const filterMonth = req.query.month ? parseInt(req.query.month) : new Date().getMonth() + 1;
+            const filterYear = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
+            
+            let query = `
+                SELECT 
+                    (DATEPART(day, b.created_at) - 1) / 7 + 1 as weekOfMonth,
+                    SUM(b.total_amount) as total
+                FROM bookings b
+            `;
+            if (roleId === 2) {
+                query += ` JOIN hotels h ON b.hotel_id = h.id`;
+            }
+            query += ` 
+                WHERE MONTH(b.created_at) = @filterMonth AND YEAR(b.created_at) = @filterYear
+                AND b.booking_status IN ('confirmed', 'checked_in', 'checked_out', 'completed')
+            `;
+            if (roleId === 2) {
+                query += ` AND h.owner_id = @userId`;
+            } else if (roleId === 4) {
+                query += ` AND b.hotel_id = @hotelId`;
+            }
+            query += ` GROUP BY (DATEPART(day, b.created_at) - 1) / 7 + 1`;
+
+            const request = pool.request();
+            request.input('filterMonth', sql.Int, filterMonth);
+            request.input('filterYear', sql.Int, filterYear);
+            if (roleId === 2) {
+                request.input('userId', sql.Int, userId);
+            } else if (roleId === 4) {
+                request.input('hotelId', sql.Int, req.user.hotelId);
+            }
+
+            const result = await request.query(query);
+            const dbData = result.recordset;
+
+            const chartData = [
+                { name: 'Tuần 1', total: 0 },
+                { name: 'Tuần 2', total: 0 },
+                { name: 'Tuần 3', total: 0 },
+                { name: 'Tuần 4', total: 0 },
+                { name: 'Tuần 5', total: 0 }
+            ];
+
+            dbData.forEach(row => {
+                const weekIndex = row.weekOfMonth - 1;
+                if (weekIndex >= 0 && weekIndex < 5) {
+                    chartData[weekIndex].total += Number(row.total) || 0;
+                }
+            });
+
+            if (chartData[4].total === 0) chartData.pop();
+
+            return res.json({ success: true, data: chartData });
+        }
+
         // Mặc định: Biểu đồ năm (12 tháng)
         const filterYear = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
         let query = `

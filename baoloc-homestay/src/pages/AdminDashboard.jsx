@@ -9,6 +9,17 @@ import RevenueChart from '../components/RevenueChart';
 import RecentTransactions from '../components/RecentTransactions';
 import './AdminDashboard.css';
 
+const parseAmenitiesImagesCount = (text) => {
+  if (!text) return 0;
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed.length;
+    return 1;
+  } catch(e) {
+    return text.split(',').filter(x => x.trim()).length;
+  }
+};
+
 // Helpers để hiển thị giờ chuẩn do CSDL trả về Local Time dưới dạng UTC string
 const formatLocalDate = (dateString) => {
   if (!dateString) return '';
@@ -52,9 +63,12 @@ const AdminDashboard = () => {
   // Thêm mới States
   const [showHomestayModal, setShowHomestayModal] = useState(false);
   const [newHomestay, setNewHomestay] = useState({ name: '', description: '', facilities_text: '', address: '', status: 'active', images_text: '' });
+  const [editHomestayImageFile, setEditHomestayImageFile] = useState(null);
 
   const [showRoomTypeModal, setShowRoomTypeModal] = useState(false);
   const [newRoomType, setNewRoomType] = useState({ hotel_id: '', name: '', base_price: '', capacity: '', room_amenities_text: '' });
+  const [editRoomTypeImageFile, setEditRoomTypeImageFile] = useState(null);
+  const [editRoomTypeAmenitiesFiles, setEditRoomTypeAmenitiesFiles] = useState([]);
 
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState({ room_type_id: '', room_number: '', status: 'available' });
@@ -535,9 +549,26 @@ const AdminDashboard = () => {
     e.preventDefault();
     const token = sessionStorage.getItem('token');
     try {
-      await axios.put(`http://localhost:5000/api/admin/catalog/hotels/${editingHomestay.id}`, editingHomestay, { headers: { Authorization: `Bearer ${token}` } });
+      const formData = new FormData();
+      formData.append('name', editingHomestay.name);
+      formData.append('description', editingHomestay.description || '');
+      formData.append('facilities_text', editingHomestay.facilities_text || '');
+      formData.append('address', editingHomestay.address || '');
+      formData.append('status', editingHomestay.status || 'active');
+      formData.append('images_text', editingHomestay.images_text || '');
+      if (editHomestayImageFile) {
+        formData.append('image', editHomestayImageFile);
+      }
+
+      await axios.put(`http://localhost:5000/api/admin/catalog/hotels/${editingHomestay.id}`, formData, { 
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        } 
+      });
       showToast('Cập nhật khách sạn thành công', 'success');
       setShowEditHomestayModal(false);
+      setEditHomestayImageFile(null);
       const resList = await axios.get('http://localhost:5000/api/admin/catalog/hotels', { headers: { Authorization: `Bearer ${token}` } });
       setHomestays(resList.data.data || []);
     } catch (err) {
@@ -566,9 +597,32 @@ const AdminDashboard = () => {
     e.preventDefault();
     const token = sessionStorage.getItem('token');
     try {
-      await axios.put(`http://localhost:5000/api/admin/catalog/room-types/${editingRoomType.id}`, editingRoomType, { headers: { Authorization: `Bearer ${token}` } });
+      const formData = new FormData();
+      formData.append('name', editingRoomType.name);
+      formData.append('base_price', editingRoomType.base_price);
+      formData.append('capacity', editingRoomType.capacity);
+      formData.append('room_amenities_text', editingRoomType.room_amenities_text || '');
+      formData.append('image_url', editingRoomType.image_url || '');
+      formData.append('amenities_images_text', editingRoomType.amenities_images_text || '');
+      if (editRoomTypeImageFile) {
+        formData.append('image', editRoomTypeImageFile);
+      }
+      if (editRoomTypeAmenitiesFiles && editRoomTypeAmenitiesFiles.length > 0) {
+        for (let i = 0; i < editRoomTypeAmenitiesFiles.length; i++) {
+          formData.append('amenity_images', editRoomTypeAmenitiesFiles[i]);
+        }
+      }
+
+      await axios.put(`http://localhost:5000/api/admin/catalog/room-types/${editingRoomType.id}`, formData, { 
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        } 
+      });
       showToast('Cập nhật loại phòng thành công', 'success');
       setShowEditRoomTypeModal(false);
+      setEditRoomTypeImageFile(null);
+      setEditRoomTypeAmenitiesFiles([]);
       const resList = await axios.get('http://localhost:5000/api/admin/catalog/room-types', { headers: { Authorization: `Bearer ${token}` } });
       setRoomTypes(resList.data.data || []);
     } catch (err) {
@@ -1093,6 +1147,9 @@ const AdminDashboard = () => {
                           if (payStatus === 'paid' || payStatus === 'confirmed') {
                             badgeClass = 'status-confirmed';
                             badgeText = 'Thành công';
+                          } else if (payStatus === 'deposited') {
+                            badgeClass = 'status-confirmed';
+                            badgeText = 'Đã cọc';
                           } else if (payStatus === 'cancelled') {
                             badgeClass = 'status-cancelled';
                             badgeText = 'Đã hủy';
@@ -1102,6 +1159,9 @@ const AdminDashboard = () => {
                           } else if (payStatus === 'checked_in') {
                             badgeClass = 'status-confirmed';
                             badgeText = 'Đang sử dụng';
+                          } else if (payStatus === 'checked_out') {
+                            badgeClass = 'status-confirmed';
+                            badgeText = 'Hoàn tất';
                           } else if (payStatus === 'completed') {
                             badgeClass = 'status-confirmed';
                             badgeText = 'Hoàn tất';
@@ -1932,6 +1992,10 @@ const AdminDashboard = () => {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tiện ích trong phòng (cách nhau bởi dấu phẩy)</label>
                 <input type="text" className="form-control" placeholder="Ví dụ: Điều hòa, Máy sấy, Tivi..." style={{ width: '100%' }} value={newRoomType.room_amenities_text} onChange={e => setNewRoomType({ ...newRoomType, room_amenities_text: e.target.value })} />
               </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Link ảnh loại phòng (URL)</label>
+                <input type="text" className="form-control" placeholder="Ví dụ: https://example.com/image.jpg" style={{ width: '100%' }} value={newRoomType.image_url || ''} onChange={e => setNewRoomType({ ...newRoomType, image_url: e.target.value })} />
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem' }}>
               <button className="btn btn-outline" onClick={() => setShowRoomTypeModal(false)}>Hủy</button>
@@ -2002,6 +2066,13 @@ const AdminDashboard = () => {
                 <input type="text" value={editingHomestay.address} onChange={(e) => setEditingHomestay({ ...editingHomestay, address: e.target.value })} className="form-control" />
               </div>
               <div className="form-group">
+                <label>Ảnh đại diện (Tải lên)</label>
+                <input type="file" accept="image/*" onChange={(e) => setEditHomestayImageFile(e.target.files[0])} className="form-control" />
+                {editingHomestay.images_text && !editHomestayImageFile && (
+                  <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>Ảnh hiện tại: <a href={editingHomestay.images_text} target="_blank" rel="noreferrer">Xem ảnh</a></small>
+                )}
+              </div>
+              <div className="form-group">
                 <label>Trạng thái</label>
                 <select value={editingHomestay.status} onChange={(e) => setEditingHomestay({ ...editingHomestay, status: e.target.value })} className="form-control">
                   <option value="active">Hoạt động</option>
@@ -2040,7 +2111,21 @@ const AdminDashboard = () => {
               </div>
               <div className="form-group">
                 <label>Tiện ích trong phòng</label>
-                <input type="text" value={editingRoomType.room_amenities_text} onChange={(e) => setEditingRoomType({ ...editingRoomType, room_amenities_text: e.target.value })} className="form-control" />
+                <input type="text" value={editingRoomType.room_amenities_text || ''} onChange={(e) => setEditingRoomType({ ...editingRoomType, room_amenities_text: e.target.value })} className="form-control" />
+              </div>
+              <div className="form-group">
+                <label>Ảnh loại phòng chính (Tải lên)</label>
+                <input type="file" accept="image/*" onChange={(e) => setEditRoomTypeImageFile(e.target.files[0])} className="form-control" />
+                {editingRoomType.image_url && !editRoomTypeImageFile && (
+                  <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>Ảnh hiện tại: <a href={editingRoomType.image_url} target="_blank" rel="noreferrer">Xem ảnh</a></small>
+                )}
+              </div>
+              <div className="form-group">
+                <label>Ảnh tiện nghi phụ (Tải lên tối đa 3 ảnh)</label>
+                <input type="file" multiple accept="image/*" onChange={(e) => setEditRoomTypeAmenitiesFiles(Array.from(e.target.files).slice(0, 3))} className="form-control" />
+                {editingRoomType.amenities_images_text && editRoomTypeAmenitiesFiles.length === 0 && (
+                  <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>Đã tải lên {parseAmenitiesImagesCount(editingRoomType.amenities_images_text)} ảnh tiện nghi</small>
+                )}
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowEditRoomTypeModal(false)}>Hủy</button>

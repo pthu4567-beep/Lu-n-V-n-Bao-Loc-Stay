@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Calendar, Users, MapPin, Star, Heart, User, History, LogOut, Menu, ChevronDown, Plus, Minus, Home as HomeIcon, Gift, TreePine, Sun, Snowflake, Sparkles, Mountain, Coffee, Wifi, Car, ChefHat, ArrowRight, Bell } from 'lucide-react';
+import { Search, Calendar, Users, MapPin, Star, Heart, User, History, LogOut, Menu, ChevronDown, Plus, Minus, Home as HomeIcon, Gift, TreePine, Sun, Snowflake, Sparkles, Mountain, Coffee, Wifi, Car, ChefHat, ArrowRight, Bell, Flame, Cloud, Bath } from 'lucide-react';
 import axios from 'axios';
 import { mockHomestays } from '../data/homestays';
 import { showToast } from '../utils/alert';
@@ -362,9 +362,14 @@ const Home = () => {
                   <p className="card-address"><MapPin size={14} /> {home.address}</p>
                   <p className="card-desc">{home.description || 'Homestay xinh đẹp với không gian thoáng đãng, view đồi trà xanh mướt, gần trung tâm thành phố Bảo Lộc.'}</p>
                   <div className="card-amenities">
-                    <span className="amenity-tag"><Wifi size={12} /> WiFi</span>
-                    <span className="amenity-tag"><Car size={12} /> Bãi xe</span>
-                    <span className="amenity-tag"><ChefHat size={12} /> Bếp</span>
+                    {(Array.isArray(home.amenities) 
+                        ? home.amenities 
+                        : (home.facilities_text || '').split(',').filter(x => x.trim())
+                      ).slice(0, 3).map((item, idx) => (
+                      <span key={idx} className="amenity-tag">
+                        <Sparkles size={12} /> {item.trim()}
+                      </span>
+                    ))}
                   </div>
                   <div className="card-price">
                     <div className="price-left">

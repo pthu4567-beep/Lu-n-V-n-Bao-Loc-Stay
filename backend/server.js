@@ -89,7 +89,7 @@ app.get('/api/homestays', async (req, res) => {
                 const imgReq = pool.request();
                 imgReq.input('hid', sql.Int, hotel.id);
                 const imgRes = await imgReq.query('SELECT TOP 1 image_url FROM hotel_images WHERE hotel_id = @hid ORDER BY is_thumbnail DESC');
-                hotel.img = imgRes.recordset.length > 0 ? imgRes.recordset[0].image_url : 'https://images.unsplash.com/photo-1542640244-7e672d6cb466?q=80&w=800';
+                hotel.img = hotel.images_text ? hotel.images_text : (imgRes.recordset.length > 0 ? imgRes.recordset[0].image_url : 'https://images.unsplash.com/photo-1542640244-7e672d6cb466?q=80&w=800');
 
                 // Lấy giá thấp nhất
                 const priceReq = pool.request();
@@ -109,7 +109,7 @@ app.get('/api/homestays', async (req, res) => {
                 hotel.rating = ratingRes.recordset[0]?.avg_rating ? parseFloat(ratingRes.recordset[0].avg_rating).toFixed(1) : 4.5;
             } catch (innerErr) {
                 console.log('Lỗi khi lấy thông tin bổ sung cho hotel', hotel.id, ':', innerErr.message);
-                hotel.img = 'https://images.unsplash.com/photo-1542640244-7e672d6cb466?q=80&w=800';
+                hotel.img = hotel.images_text || 'https://images.unsplash.com/photo-1542640244-7e672d6cb466?q=80&w=800';
                 hotel.price = 0;
                 hotel.rating = 4.5;
             }
@@ -145,7 +145,9 @@ app.get('/api/homestays/:id', async (req, res) => {
         imgReq.input('id', sql.Int, hotelId);
         const imgRes = await imgReq.query('SELECT image_url FROM hotel_images WHERE hotel_id = @id');
         hotel.images = imgRes.recordset.map(r => r.image_url);
-        if (hotel.images.length === 0) {
+        if (hotel.images_text) {
+            hotel.images = [hotel.images_text, ...hotel.images.filter(img => img !== hotel.images_text)];
+        } else if (hotel.images.length === 0) {
             hotel.images = ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?q=80&w=1200'];
         }
 
@@ -155,7 +157,7 @@ app.get('/api/homestays/:id', async (req, res) => {
         roomReq.input('cin', sql.DateTime, checkIn ? new Date(checkIn) : null);
         roomReq.input('cout', sql.DateTime, checkOut ? new Date(checkOut) : null);
         const roomRes = await roomReq.query(`
-            SELECT rt.id, rt.name as type, rt.capacity, rt.adult_capacity, rt.child_capacity, rt.base_price as price, rt.room_amenities_text,
+            SELECT rt.id, rt.name as type, rt.capacity, rt.adult_capacity, rt.child_capacity, rt.base_price as price, rt.room_amenities_text, rt.image_url, rt.amenities_images_text,
                    (SELECT COUNT(*) FROM rooms r 
                     WHERE r.room_type_id = rt.id 
                       AND r.status = 'available'

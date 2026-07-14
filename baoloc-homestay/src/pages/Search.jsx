@@ -11,7 +11,11 @@ const Search = () => {
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
 
-  const [priceRange, setPriceRange] = useState(2000000);
+  const [priceRange, setPriceRange] = useState(2000000);//khoảng giá
+  const [rentType, setRentType] = useState('all');//hình thức thuê
+  const [selectedAmenities, setSelectedAmenities] = useState([]);//tiện ích được chọn
+  const [sortOption, setSortOption] = useState('recommended');//cách sắp xếp
+
   const [homestays, setHomestays] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +26,7 @@ const Search = () => {
       try {
         const url = initialQuery ? `http://localhost:5000/api/homestays?search=${encodeURIComponent(initialQuery)}` : `http://localhost:5000/api/homestays`;
         const response = await axios.get(url);
+        
         setHomestays(response.data);
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu search:', err);
@@ -32,8 +37,40 @@ const Search = () => {
     fetchSearch();
   }, [initialQuery]);
 
-  // Lọc theo giá ở frontend (hoặc có thể đưa lên backend)
-  const filteredHomestays = homestays.filter(h => h.price <= priceRange);
+  // Hàm xử lý khi check/uncheck tiện ích
+  const handleAmenityChange = (amenity) => {
+    setSelectedAmenities(prev => 
+      prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
+    );
+  };
+
+  // Lọc ở frontend cho đơn giản
+  const filteredHomestays = homestays.filter(h => {
+    // 1. Lọc theo giá
+    if (h.price > priceRange) return false;
+    
+    // 2. Lọc theo hình thức thuê (nếu database có lưu)
+    if (rentType !== 'all') {
+      const hRent = h.rent_type || h.rentType || '';
+      if (rentType === 'day' && !hRent.toLowerCase().includes('ngày') && !hRent.toLowerCase().includes('day')) return false;
+      if (rentType === 'hour' && !hRent.toLowerCase().includes('giờ') && !hRent.toLowerCase().includes('hour')) return false;
+    }
+
+    // 3. Lọc theo tiện ích (amenities)
+    if (selectedAmenities.length > 0) {
+      const amenitiesStr = (h.facilities_text || (Array.isArray(h.amenities) ? h.amenities.join(',') : '')).toLowerCase();
+      // Kiểm tra homestay có tất cả tiện ích đang được chọn không
+      const hasAll = selectedAmenities.every(a => amenitiesStr.includes(a.toLowerCase()));
+      if (!hasAll) return false;
+    }
+
+    return true;
+  }).sort((a, b) => {
+    // 4. Sắp xếp
+    if (sortOption === 'price_asc') return a.price - b.price;
+    if (sortOption === 'price_desc') return b.price - a.price;
+    return 0; // recommended
+  });
 
   return (
     <>
@@ -51,17 +88,17 @@ const Search = () => {
               <h3><Filter size={18} /> Hình thức thuê</h3>
               <div className="radio-group">
                 <label className="custom-radio">
-                  <input type="radio" name="rentType" defaultChecked />
+                  <input type="radio" name="rentType" checked={rentType === 'all'} onChange={() => setRentType('all')} />
                   <span className="radio-mark"></span>
                   Tất cả
                 </label>
                 <label className="custom-radio">
-                  <input type="radio" name="rentType" />
+                  <input type="radio" name="rentType" checked={rentType === 'day'} onChange={() => setRentType('day')} />
                   <span className="radio-mark"></span>
                   Thuê theo ngày
                 </label>
                 <label className="custom-radio">
-                  <input type="radio" name="rentType" />
+                  <input type="radio" name="rentType" checked={rentType === 'hour'} onChange={() => setRentType('hour')} />
                   <span className="radio-mark"></span>
                   Thuê theo giờ
                 </label>
@@ -89,17 +126,17 @@ const Search = () => {
               <h3>Tiện ích phổ biến</h3>
               <div className="checkbox-group">
                 <label className="custom-checkbox">
-                  <input type="checkbox" onChange={() => navigate('/search?q=Sân BBQ')} />
+                  <input type="checkbox" checked={selectedAmenities.includes('BBQ')} onChange={() => handleAmenityChange('BBQ')} />
                   <span className="checkmark"></span>
                   Sân BBQ
                 </label>
                 <label className="custom-checkbox">
-                  <input type="checkbox" onChange={() => navigate('/search?q=săn mây')} />
+                  <input type="checkbox" checked={selectedAmenities.includes('săn mây')} onChange={() => handleAmenityChange('săn mây')} />
                   <span className="checkmark"></span>
                   Săn mây
                 </label>
                 <label className="custom-checkbox">
-                  <input type="checkbox" onChange={() => navigate('/search?q=Bồn tắm')} />
+                  <input type="checkbox" checked={selectedAmenities.includes('Bồn tắm')} onChange={() => handleAmenityChange('Bồn tắm')} />
                   <span className="checkmark"></span>
                   Bồn tắm gỗ
                 </label>
@@ -111,10 +148,10 @@ const Search = () => {
           <main className="results">
             <div className="results-toolbar">
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Sắp xếp theo:</span>
-              <select className="sort-select">
-                <option>Đề xuất cho bạn</option>
-                <option>Giá tăng dần</option>
-                <option>Giá giảm dần</option>
+              <select className="sort-select" value={sortOption} onChange={(e) => setSortOption(e.target.value)}>
+                <option value="recommended">Đề xuất cho bạn</option>
+                <option value="price_asc">Giá tăng dần</option>
+                <option value="price_desc">Giá giảm dần</option>
               </select>
             </div>
 
@@ -143,9 +180,12 @@ const Search = () => {
                         <p className="card-desc" style={{ fontSize: '0.95rem', color: '#475569', lineHeight: 1.6, marginBottom: '1.25rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{home.description || 'Chỗ nghỉ tuyệt vời cho chuyến du lịch Bảo Lộc của bạn. Đầy đủ tiện nghi và gần các điểm tham quan.'}</p>
 
                         <div className="list-tags">
-                          <span>WiFi miễn phí</span>
-                          <span>Chỗ để xe</span>
-                          <span>Bếp</span>
+                          {(Array.isArray(home.amenities) 
+                              ? home.amenities 
+                              : (home.facilities_text || '').split(',').filter(x => x.trim())
+                            ).slice(0, 3).map((item, idx) => (
+                            <span key={idx}>{item.trim()}</span>
+                          ))}
                         </div>
 
                         <div className="list-footer">

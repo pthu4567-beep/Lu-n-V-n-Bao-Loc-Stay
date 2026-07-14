@@ -8,6 +8,17 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import './Detail.css';
 
+const parseAmenitiesImages = (text) => {
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+    return [text];
+  } catch (e) {
+    return text.split(',').filter(x => x.trim());
+  }
+};
+
 const getRoomImages = (roomType) => {
   const defaultSets = [
     [
@@ -121,7 +132,10 @@ const Detail = () => {
     const fetchDetail = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/api/homestays/${id}?checkIn=${checkIn}&checkOut=${checkOut}`);
-        setHotel(response.data);
+        const data = response.data;
+
+
+        setHotel(data);
       } catch (err) {
         console.error('Lỗi khi tải chi tiết:', err);
       } finally {
@@ -141,7 +155,10 @@ const Detail = () => {
         const refetchDetail = async () => {
           try {
             const response = await axios.get(`http://localhost:5000/api/homestays/${id}?checkIn=${checkIn}&checkOut=${checkOut}`);
-            setHotel(response.data);
+            const data = response.data;
+
+
+            setHotel(data);
           } catch (err) {
             console.error('Lỗi tải lại thông tin homestay:', err);
           }
@@ -238,6 +255,7 @@ const Detail = () => {
   if (loading) return <div className="container" style={{padding: '5rem 0', textAlign: 'center'}}>Đang tải dữ liệu homestay...</div>;
   if (!hotel) return <div className="container" style={{padding: '5rem 0', textAlign: 'center'}}>Không tìm thấy Homestay này!</div>;
 
+
   return (
     <>
       <Header />
@@ -300,9 +318,20 @@ const Detail = () => {
                   {/* KHU VỰC ẢNH PHÒNG - MỤC ĐÍCH BẢO VỆ LUẬN VĂN: 
                       Bạn có thể tự thay đổi đường link ảnh (src) vào đây để đổi ảnh hiển thị */}
                   <div className="room-detail-images" style={{ display: 'flex', gap: '10px', overflowX: 'auto', marginBottom: '15px', paddingBottom: '10px' }}>
-                      {getRoomImages(room.type).map((imgUrl, idx) => (
-                        <img key={idx} src={imgUrl} alt={`${room.type} ${idx + 1}`} style={{ width: '200px', height: '140px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
-                      ))}
+                      {room.image_url ? (
+                        <>
+                          <img src={room.image_url} alt={`${room.type} chính`} style={{ width: '250px', height: '160px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+                          <div className="room-amenities-images">
+                            {parseAmenitiesImages(room.amenities_images_text).map((imgUrl, idx) => (
+                              <img key={idx} src={imgUrl} alt="Tiện nghi" style={{ width: '120px', height: '160px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        getRoomImages(room.type).map((imgUrl, idx) => (
+                          <img key={idx} src={imgUrl} alt={`${room.type} ${idx + 1}`} style={{ width: '200px', height: '140px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+                        ))
+                      )}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
@@ -465,10 +494,23 @@ const Detail = () => {
               <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#0f172a' }}>{viewRoomDetail.type}</h2>
               <button onClick={() => setViewRoomDetail(null)} style={{ background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', color: '#64748b', padding: '0 10px' }}>&times;</button>
             </div>
-            <div className="modal-images" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-                {getRoomImages(viewRoomDetail.type).map((imgUrl, idx) => (
-                  <img key={idx} src={imgUrl} alt={`${viewRoomDetail.type} ${idx + 1}`} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px' }} />
-                ))}
+            <div className="modal-images" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px' }}>
+              {viewRoomDetail.image_url ? (
+                <>
+                  {/* Ảnh chính hiển thị 2 cột */}
+                  <img src={viewRoomDetail.image_url} alt="Ảnh chính" style={{ width: '100%', height: '300px', objectFit: 'cover', borderRadius: '8px', gridColumn: '1 / span 2' }} />
+                  
+                  {/* Các ảnh tiện nghi hiển thị ở dưới */}
+                  {parseAmenitiesImages(viewRoomDetail.amenities_images_text).slice(0, 2).map((imgUrl, idx) => (
+                    <img key={idx} src={imgUrl} alt="Tiện nghi" style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px' }} />
+                  ))}
+                </>
+              ) : (
+                /* Nếu không có ảnh chính, lấy ảnh mặc định của phòng */
+                getRoomImages(viewRoomDetail.type).slice(0, 3).map((imgUrl, idx) => (
+                  <img key={idx} src={imgUrl} alt="Ảnh phòng" style={{ width: '100%', height: idx === 0 ? '300px' : '200px', objectFit: 'cover', borderRadius: '8px', gridColumn: idx === 0 ? '1 / span 2' : 'auto' }} />
+                ))
+              )}
             </div>
             <div className="modal-info">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
@@ -500,19 +542,25 @@ const Detail = () => {
                   <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 500 }}>Giá mỗi đêm</span>
                   <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#ef4444' }}>{viewRoomDetail.price.toLocaleString('vi-VN')} ₫</div>
                 </div>
-                <button 
-                    className="btn btn-primary"
-                    style={{ padding: '12px 28px', fontWeight: 600, fontSize: '1.1rem', borderRadius: '8px' }}
-                    onClick={() => {
-                      if (viewRoomDetail.available > 0) {
-                        setSelectedRoom(viewRoomDetail);
-                        setViewRoomDetail(null);
-                      }
-                    }}
-                    disabled={viewRoomDetail.available === 0}
-                >
-                    {viewRoomDetail.available === 0 ? 'Đã hết phòng' : 'Chọn phòng này'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <button 
+                    style={{ padding: '12px 20px', border: 'none', background: '#f1f5f9', cursor: 'pointer', fontWeight: 600, color: '#475569', fontSize: '1.1rem' }}
+                    onClick={() => handleRoomCountChange(viewRoomDetail.id, (selectedRooms[viewRoomDetail.id] || 0) - 1, viewRoomDetail.available)}
+                    disabled={!selectedRooms[viewRoomDetail.id] || selectedRooms[viewRoomDetail.id] <= 0}
+                  >
+                    -
+                  </button>
+                  <span style={{ padding: '0 20px', fontWeight: 600, minWidth: '40px', textAlign: 'center', fontSize: '1.1rem' }}>
+                    {selectedRooms[viewRoomDetail.id] || 0}
+                  </span>
+                  <button 
+                    style={{ padding: '12px 20px', border: 'none', background: '#f1f5f9', cursor: 'pointer', fontWeight: 600, color: '#475569', fontSize: '1.1rem' }}
+                    onClick={() => handleRoomCountChange(viewRoomDetail.id, (selectedRooms[viewRoomDetail.id] || 0) + 1, viewRoomDetail.available)}
+                    disabled={(selectedRooms[viewRoomDetail.id] || 0) >= viewRoomDetail.available || viewRoomDetail.available === 0}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
           </div>
