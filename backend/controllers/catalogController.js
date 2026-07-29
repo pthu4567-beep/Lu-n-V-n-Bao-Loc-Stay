@@ -178,7 +178,7 @@ exports.getRoomTypes = async (req, res) => {
 
 exports.createRoomType = async (req, res) => {
     try {
-        const { hotel_id, name, room_amenities_text, base_price, capacity, image_url } = req.body;
+        const { hotel_id, name, room_amenities_text, base_price, capacity, image_url, note } = req.body;
         const pool = await poolPromise;
         const userId = req.user.id;
         const roleId = req.user.roleId;
@@ -201,11 +201,12 @@ exports.createRoomType = async (req, res) => {
         request.input('base_price', sql.Decimal(18, 2), base_price);
         request.input('capacity', sql.Int, capacity);
         request.input('image_url', sql.VarChar, image_url || '');
+        request.input('note', sql.NVarChar, note || '');
 
         const query = `
-            INSERT INTO room_types (hotel_id, name, room_amenities_text, base_price, capacity, image_url)
+            INSERT INTO room_types (hotel_id, name, room_amenities_text, base_price, capacity, image_url, note)
             OUTPUT inserted.*
-            VALUES (@hotel_id, @name, @room_amenities_text, @base_price, @capacity, @image_url)
+            VALUES (@hotel_id, @name, @room_amenities_text, @base_price, @capacity, @image_url, @note)
         `;
         const result = await request.query(query);
         res.json({ success: true, message: 'Thêm loại phòng thành công', data: result.recordset[0] });
@@ -218,7 +219,7 @@ exports.createRoomType = async (req, res) => {
 exports.updateRoomType = async (req, res) => {
     try {
         const roomTypeId = parseInt(req.params.id);
-        const { name, room_amenities_text, base_price, capacity, image_url } = req.body;
+        const { name, room_amenities_text, base_price, capacity, image_url, note } = req.body;
         const pool = await poolPromise;
         const userId = req.user.id;
         const roleId = req.user.roleId;
@@ -256,10 +257,11 @@ exports.updateRoomType = async (req, res) => {
         request.input('capacity', sql.Int, capacity);
         request.input('image_url', sql.VarChar, image_url_final);
         request.input('amenities_images_text', sql.NVarChar, amenities_images_text_final);
+        request.input('note', sql.NVarChar, note || '');
 
         await request.query(`
             UPDATE room_types 
-            SET name=@name, room_amenities_text=@room_amenities_text, base_price=@base_price, capacity=@capacity, image_url=@image_url, amenities_images_text=@amenities_images_text
+            SET name=@name, room_amenities_text=@room_amenities_text, base_price=@base_price, capacity=@capacity, image_url=@image_url, amenities_images_text=@amenities_images_text, note=@note
             WHERE id = @id
         `);
         res.json({ success: true, message: 'Cập nhật loại phòng thành công' });
@@ -338,6 +340,7 @@ exports.getRooms = async (req, res) => {
                     JOIN bookings b ON bd.booking_id = b.id
                     WHERE bd.room_id = r.id 
                       AND b.booking_status NOT IN ('cancelled', 'rejected', 'completed', 'checked_out')
+                      AND NOT (b.booking_status = 'pending_payment' AND DATEDIFF(second, b.created_at, GETDATE()) >= 900)
                       AND GETDATE() BETWEEN bd.check_in_datetime AND bd.check_out_datetime
                 ) THEN 'occupied'
                 ELSE r.status 
@@ -377,12 +380,13 @@ exports.getRooms = async (req, res) => {
 
 exports.createRoom = async (req, res) => {
     try {
-        const { room_type_id, room_number, status } = req.body;
+        const { room_type_id, room_number, status,note } = req.body;
         const pool = await poolPromise;
         const request = pool.request();
         request.input('room_type_id', sql.Int, room_type_id);
         request.input('room_number', sql.VarChar, room_number);
         request.input('status', sql.VarChar, status || 'available'); // available, cleaning, maintenance
+        request.input('note', sql.NVarChar, note || '');
 
         const query = `
             INSERT INTO rooms (room_type_id, room_number, status)
@@ -400,11 +404,12 @@ exports.createRoom = async (req, res) => {
 exports.updateRoomStatus = async (req, res) => {
     try {
         const roomId = parseInt(req.params.id);
-        const { status } = req.body;
+        const { status,note } = req.body;
         const pool = await poolPromise;
         const request = pool.request();
         request.input('id', sql.Int, roomId);
         request.input('status', sql.VarChar, status);
+        request.input('note', sql.NVarChar, note);
 
         const query = `UPDATE rooms SET status = @status WHERE id = @id`;
         await request.query(query);
@@ -485,7 +490,9 @@ exports.deleteRoom = async (req, res) => {
             SELECT COUNT(*) as count 
             FROM booking_details bd
             JOIN bookings b ON bd.booking_id = b.id
-            WHERE bd.room_id = @id AND b.booking_status NOT IN ('cancelled', 'rejected', 'completed', 'checked_out')
+            WHERE bd.room_id = @id 
+              AND b.booking_status NOT IN ('cancelled', 'rejected', 'completed', 'checked_out')
+              AND NOT (b.booking_status = 'pending_payment' AND DATEDIFF(second, b.created_at, GETDATE()) >= 900)
         `);
         if (checkBookingRes.recordset[0].count > 0) {
             return res.status(400).json({ success: false, message: 'Không thể xóa phòng đang có đơn đặt đang hoạt động!' });

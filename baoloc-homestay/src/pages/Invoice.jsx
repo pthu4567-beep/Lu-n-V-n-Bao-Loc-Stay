@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Printer, ArrowLeft, CheckCircle2, Home as HomeIcon, MapPin, User, Phone, Mail, Calendar, Clock } from 'lucide-react';
@@ -12,10 +12,11 @@ const Invoice = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     fetchInvoice();
   }, [id]);
 
-  const fetchInvoice = async () => {
+    async function fetchInvoice() {
     try {
       const token = sessionStorage.getItem('token');
       if (!token) {

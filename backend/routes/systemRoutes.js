@@ -18,5 +18,6 @@ router.post('/reviews/:id/reply', systemController.replyReview);
 // --- CONTACTS ---
 router.get('/contacts', systemController.getContacts);
 router.put('/contacts/:id/reply', systemController.replyContact);
+router.post('/contacts/:id/send-email', systemController.sendReplyEmail);
 
 module.exports = router;

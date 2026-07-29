@@ -83,4 +83,40 @@ const startAutoApproveJob = () => {
     }, 60 * 1000); // 1 phút chạy 1 lần
 };
 
-module.exports = { startAutoApproveJob };
+const startExpiredBookingCleanupJob = (io) => {
+    // Chạy mỗi 20 giây để dọn dẹp các đơn đặt phòng quá thời hạn 15 phút (900 giây)
+    setInterval(async () => {
+        try {
+            const pool = await poolPromise;
+            // Tìm các đơn chờ thanh toán đã tạo quá 15 phút
+            const result = await pool.request().query(`
+                SELECT b.id as booking_id, b.hotel_id, r.room_type_id
+                FROM bookings b
+                LEFT JOIN booking_details bd ON b.id = bd.booking_id
+                LEFT JOIN rooms r ON bd.room_id = r.id
+                WHERE b.booking_status = 'pending_payment' AND DATEDIFF(second, b.created_at, GETDATE()) >= 900
+            `);
+
+            if (result.recordset.length > 0) {
+                for (const row of result.recordset) {
+                    const req = pool.request();
+                    req.input('bId', sql.Int, row.booking_id);
+                    await req.query(`
+                        UPDATE bookings SET booking_status = 'cancelled' WHERE id = @bId AND booking_status = 'pending_payment';
+                        UPDATE payments SET payment_status = 'cancelled' WHERE booking_id = @bId AND payment_status = 'pending';
+                    `);
+                    console.log(`[Auto-Cancel] Đã tự động hủy đơn hàng #${row.booking_id} do hết thời gian giữ phòng 15 phút`);
+
+                    if (io && row.hotel_id && row.room_type_id) {
+                        io.emit('room_update', { hotelId: row.hotel_id, roomTypeId: row.room_type_id });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Lỗi cron job cleanup expired bookings:', err);
+        }
+    }, 20 * 1000); // 20 giây chạy 1 lần
+};
+
+module.exports = { startAutoApproveJob, startExpiredBookingCleanupJob };
+

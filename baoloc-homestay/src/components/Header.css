@@ -30,6 +30,12 @@
   color: var(--primary-600, #0284c7);
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 3rem; /* Khoảng cách giữa logo và menu */
+}
+
 .logo-text {
   font-size: 1.5rem;
   font-weight: 800;

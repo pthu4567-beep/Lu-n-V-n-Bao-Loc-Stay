@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MapPin, Star, Flame, Coffee, Wifi, Wind } from 'lucide-react';
+import { MapPin, Star, Flame, Wifi, Wind } from 'lucide-react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { showAlert } from '../utils/alert';
@@ -242,7 +242,7 @@ const Detail = () => {
               .join(', ');
               
             // Chuyển hướng sang trang thanh toán kèm thông tin
-            navigate(`/checkout/${res.data.bookingId}?amount=${res.data.depositAmount}&total=${totalAmount}&hotel=${hotel.name}&room=${roomNames}`);
+            navigate(`/checkout/${res.data.bookingId}?amount=${res.data.depositAmount}&total=${totalAmount}&hotel=${hotel.name}&room=${roomNames}&createdAt=${res.data.createdAt || new Date().toISOString()}`);
         }
     } catch (err) {
         const errorMsg = err.response?.data?.error || "Có lỗi xảy ra khi tạo đơn đặt phòng";
@@ -261,18 +261,9 @@ const Detail = () => {
       <Header />
       <div className="detail-page container">
       {/* Gallery */}
-      <div className="gallery-bento">
+      <div className="gallery-bento one-image">
         <div className="gallery-main">
-          <img src={hotel.images[0]} alt="Main" />
-        </div>
-        <div className="gallery-side">
-          {hotel.images[1] && <img src={hotel.images[1]} alt="Sub 1" />}
-          {hotel.images[2] && (
-            <div className="gallery-more">
-                <img src={hotel.images[2]} alt="Sub 2" />
-                {hotel.images.length > 3 && <div className="more-overlay">+{hotel.images.length - 3} ẢNH</div>}
-            </div>
-          )}
+          <img src={hotel.images[0]} alt={hotel.name} />
         </div>
       </div>
 

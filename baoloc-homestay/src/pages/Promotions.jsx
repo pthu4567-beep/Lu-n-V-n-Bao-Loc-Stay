@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Gift, Sun, Snowflake, TreePine, Sparkles, CheckCircle, Tag, Calendar } from 'lucide-react';
+import { Gift, Sun, TreePine, Sparkles, Tag, Calendar } from 'lucide-react';
 import { showToast } from '../utils/alert';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -91,12 +91,11 @@ const Promotions = () => {
                   <div className="deal-discount">Giảm {promo.discount_percent}%</div>
                   <h3>{promo.hotel_id ? `Dành cho: ${promo.hotel_name}` : 'Áp dụng Toàn Hệ Thống'}</h3>
                   <p>Nhập mã <strong>{promo.discount_code}</strong> để được giảm ngay {promo.discount_percent}%.</p>
-                  <div className="deal-period" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '14px', margin: '15px 0' }}>
+                  <div className="deal-period">
                     <Calendar size={14} /> Có hạn đến {formattedDate}
                   </div>
                   <button 
-                    className="btn btn-primary w-full" 
-                    style={{ borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    className="btn btn-outline deal-btn" 
                     onClick={() => handleSaveVoucher(promo.id)}
                   >
                     Lưu Voucher

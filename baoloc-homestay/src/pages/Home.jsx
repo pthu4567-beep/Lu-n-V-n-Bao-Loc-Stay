@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Calendar, Users, MapPin, Star, Heart, User, History, LogOut, Menu, ChevronDown, Plus, Minus, Home as HomeIcon, Gift, TreePine, Sun, Snowflake, Sparkles, Mountain, Coffee, Wifi, Car, ChefHat, ArrowRight, Bell, Flame, Cloud, Bath } from 'lucide-react';
+import { Search, Calendar, MapPin, Star, Heart, ChevronDown, Plus, Minus, Home as Gift, TreePine, Sun, Sparkles, Mountain, Coffee, Wifi, Car, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import { mockHomestays } from '../data/homestays';
 import { showToast } from '../utils/alert';
@@ -14,21 +14,21 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
 
   // Auth state
-  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [user, setUser] = useState(null);
+  const [isLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
+
+  const [, setUser] = useState(null);
 
   useEffect(() => {
     const storedUser = sessionStorage.getItem('user');
     if (storedUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(JSON.parse(storedUser));
     }
   }, [isLoggedIn]);
 
   // Thông báo
-  const [notifications, setNotifications] = useState([]);
-  const [showNotif, setShowNotif] = useState(false);
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -40,7 +40,7 @@ const Home = () => {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (res.data && res.data.success) {
-            setNotifications(res.data.data);
+
           }
         } catch (e) {
           console.log("Lỗi tải thông báo", e);
@@ -52,15 +52,7 @@ const Home = () => {
     }
   }, [isLoggedIn]);
 
-  const markAsRead = async (id) => {
-    try {
-      const token = sessionStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
-    } catch (e) { }
-  };
+
 
   // Search form states
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,10 +111,10 @@ const Home = () => {
   };
 
   const amenitiesCategories = [
-    { id: 1, name: 'Săn mây', img: 'https://images.unsplash.com/photo-1506501139174-099022df5260?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' },
+    { id: 1, name: 'Săn mây', img: '/san-may.jpg' },
     { id: 2, name: 'Sân vườn BBQ', img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' },
     { id: 3, name: 'Bồn tắm mộc', img: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' },
-    { id: 4, name: 'View Đồi Chè', img: 'https://images.unsplash.com/photo-1587315582312-58832a4e222f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' }
+    { id: 4, name: 'View Đồi Chè', img: '/doi-che.jpg' }
   ];
 
   const seasonalDeals = [
@@ -183,7 +175,7 @@ const Home = () => {
       <section className="hero">
         <div className="hero-overlay"></div>
         <div className="hero-bg">
-          <img src="/baoloc-night.png" alt="Bảo Lộc sương mây" />
+          <img src="/thanh-pho-bao-loc.jpg" alt="Bảo Lộc sương mây" />
         </div>
         <div className="hero-content container">
           <h1 className="hero-title">Khám phá chốn bình yên giữa lòng Bảo Lộc</h1>
@@ -362,10 +354,10 @@ const Home = () => {
                   <p className="card-address"><MapPin size={14} /> {home.address}</p>
                   <p className="card-desc">{home.description || 'Homestay xinh đẹp với không gian thoáng đãng, view đồi trà xanh mướt, gần trung tâm thành phố Bảo Lộc.'}</p>
                   <div className="card-amenities">
-                    {(Array.isArray(home.amenities) 
-                        ? home.amenities 
-                        : (home.facilities_text || '').split(',').filter(x => x.trim())
-                      ).slice(0, 3).map((item, idx) => (
+                    {(Array.isArray(home.amenities)
+                      ? home.amenities
+                      : (home.facilities_text || '').split(',').filter(x => x.trim())
+                    ).slice(0, 3).map((item, idx) => (
                       <span key={idx} className="amenity-tag">
                         <Sparkles size={12} /> {item.trim()}
                       </span>
@@ -394,7 +386,7 @@ const Home = () => {
         </div>
         <div className="experiences-grid">
           {amenitiesCategories.map(cat => (
-            <div key={cat.id} className="experience-block">
+            <div key={cat.id} className="experience-block" onClick={() => navigate(`/search?q=${encodeURIComponent(cat.name)}`)}>
               <img src={cat.img} alt={cat.name} />
               <div className="experience-overlay"></div>
               <h3>{cat.name}</h3>

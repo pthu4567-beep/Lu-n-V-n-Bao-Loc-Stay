@@ -49,6 +49,15 @@ const Profile = () => {
   const [isOtpStep, setIsOtpStep] = useState(false);
   const [changePwdToken, setChangePwdToken] = useState('');
   const [otp, setOtp] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (resendTimer > 0) {
+      timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendTimer]);
 
   // Lấy thông tin user đăng nhập từ sessionStorage
   useEffect(() => {
@@ -255,9 +264,32 @@ const Profile = () => {
         setNotification({ isOpen: true, message: res.data.message, type: 'success' });
         setChangePwdToken(res.data.changePwdToken);
         setIsOtpStep(true);
+        setResendTimer(60);
       }
     } catch (err) {
       setNotification({ isOpen: true, message: err.response?.data?.error || "Có lỗi xảy ra khi yêu cầu đổi mật khẩu", type: 'error' });
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    try {
+      setNotification({ isOpen: true, message: "Đang gửi lại mã OTP...", type: 'info' });
+      const res = await axios.post('http://localhost:5000/api/users/request-change-password', {
+        oldPassword,
+        newPassword
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setNotification({ isOpen: true, message: "Mã OTP mới đã được gửi tới email của bạn!", type: 'success' });
+        setChangePwdToken(res.data.changePwdToken);
+        setResendTimer(60);
+      }
+    } catch (err) {
+      setNotification({ isOpen: true, message: err.response?.data?.error || "Có lỗi xảy ra khi gửi lại OTP", type: 'error' });
     }
   };
 
@@ -538,6 +570,25 @@ const Profile = () => {
                     </button>
                     <button type="submit" className="btn btn-primary" disabled={!otp || otp.length < 6}>
                       Xác nhận & Đổi mật khẩu
+                    </button>
+                  </div>
+                  <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px', marginRight: '8px' }}>Chưa nhận được mã?</span>
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={resendTimer > 0}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: resendTimer > 0 ? '#94a3b8' : '#0284c7',
+                        fontWeight: '600',
+                        cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        textDecoration: resendTimer > 0 ? 'none' : 'underline'
+                      }}
+                    >
+                      {resendTimer > 0 ? `Gửi lại sau (${resendTimer}s)` : 'Gửi lại mã OTP'}
                     </button>
                   </div>
                 </form>

@@ -4,6 +4,15 @@
 }
 
 /* Gallery Bento */
+.gallery-bento.one-image {
+  grid-template-columns: 1fr;
+}
+.gallery-bento.two-images {
+  grid-template-columns: 1fr 1fr;
+}
+.gallery-bento.two-images .gallery-side {
+  grid-template-rows: 1fr;
+}
 .gallery-bento {
   display: grid;
   grid-template-columns: 2fr 1fr;

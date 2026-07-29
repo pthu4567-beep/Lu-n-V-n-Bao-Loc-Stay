@@ -1,56 +1,30 @@
 /* Premium Search Page Styles */
 .search-page {
-  padding-top: 3rem;
+  padding-top: calc(72px + 2rem);
   padding-bottom: 6rem;
   background: radial-gradient(circle at top left, #f8fafc, #f1f5f9 100%);
   min-height: 100vh;
 }
 
-/* Premium Header */
+/* Compact Search Header */
 .search-header {
-  margin-bottom: 3rem;
-  padding: 4rem 2rem;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(56, 189, 248, 0.05) 100%);
-  border-radius: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.03);
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(10px);
+  margin-bottom: 1.5rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: left;
 }
 
-.search-header::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%);
-  animation: rotateGlow 15s linear infinite;
-  z-index: -1;
+.search-result-text {
+  font-size: 1.05rem;
+  color: #475569;
+  margin: 0;
 }
 
-@keyframes rotateGlow {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.search-header h1 {
-  font-size: 3rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, #0284c7, #38bdf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 1rem;
-  letter-spacing: -0.03em;
-}
-
-.search-header p {
-  font-size: 1.25rem;
-  color: #64748b;
-  font-weight: 500;
+.search-result-text strong {
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .search-layout {

@@ -1,4 +1,3 @@
-import React from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import './StaticPage.css';
@@ -18,7 +17,7 @@ const HelpCenter = () => {
             <li>Thay đổi thông tin đặt phòng.</li>
             <li>Liên hệ trực tiếp với chủ Homestay.</li>
           </ul>
-          <p style={{ marginTop: '20px' }}>Nếu bạn không tìm thấy câu trả lời, hãy liên hệ hotline: <strong>0909 123 456</strong>.</p>
+          <p style={{ marginTop: '20px' }}>Nếu bạn không tìm thấy câu trả lời, hãy liên hệ hotline: <strong>0354767628</strong>.</p>
         </div>
       </div>
       <Footer />

@@ -176,6 +176,19 @@
   padding-right: 3rem;
 }
 
+/* Ẩn con mắt mặc định của trình duyệt Edge/Chrome để không bị trùng 2 con mắt */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="text"]::-ms-reveal,
+input[type="text"]::-ms-clear {
+  display: none !important;
+}
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .eye-btn {
   position: absolute;
   right: 1rem;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Star, Filter } from 'lucide-react';
 import axios from 'axios';
@@ -77,8 +77,9 @@ const Search = () => {
       <Header />
       <div className="search-page container">
         <div className="search-header">
-          <h1>Kết quả tìm kiếm {initialQuery && `cho "${initialQuery}"`}</h1>
-          <p>Tìm thấy {filteredHomestays.length} homestay tại Bảo Lộc</p>
+          <p className="search-result-text">
+            <strong>Kết quả tìm kiếm {initialQuery && `cho "${initialQuery}"`}:</strong> Tìm thấy {filteredHomestays.length} homestay tại Bảo Lộc
+          </p>
         </div>
 
         <div className="search-layout">

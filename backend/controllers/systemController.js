@@ -1,3 +1,4 @@
+const nodemailer = require('nodemailer');
 const { sql, poolPromise } = require('../db');
 
 // =====================================
@@ -161,8 +162,6 @@ exports.replyContact = async (req, res) => {
         const request = pool.request();
         request.input('id', sql.Int, contactId);
 
-        // Update status to replied (in DB we might just have a 'status' column or 'replied' bit)
-        // Check if status column exists, if not maybe just update something else. Assuming 'status' column for contact_messages.
         await request.query(`
             IF COL_LENGTH('contact_messages', 'status') IS NOT NULL
             BEGIN
@@ -172,6 +171,50 @@ exports.replyContact = async (req, res) => {
         res.json({ success: true, message: 'Đã đánh dấu phản hồi' });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
+exports.sendReplyEmail = async (req, res) => {
+    try {
+        const contactId = parseInt(req.params.id);
+        const { email, subject, content } = req.body;
+
+        if (!email || !subject || !content) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ email, tiêu đề và nội dung.' });
+        }
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_APP_PASSWORD
+            }
+        });
+
+        const mailOptions = {
+            from: `"Hệ thống CSKH - Bảo Lộc Stay" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: subject,
+            html: content.replace(/\n/g, '<br>')
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('id', sql.Int, contactId);
+        
+        await request.query(`
+            IF COL_LENGTH('contact_messages', 'status') IS NOT NULL
+            BEGIN
+                UPDATE contact_messages SET status = 'replied' WHERE id = @id
+            END
+        `);
+
+        res.json({ success: true, message: 'Gửi email thành công và đã cập nhật trạng thái.' });
+    } catch (err) {
+        console.error('Lỗi khi gửi email:', err);
+        res.status(500).json({ success: false, message: 'Gửi email thất bại', error: err.message });
     }
 };
 

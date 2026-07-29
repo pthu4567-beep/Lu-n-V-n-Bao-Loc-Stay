@@ -62,16 +62,16 @@ const AdminDashboard = () => {
 
   // Thêm mới States
   const [showHomestayModal, setShowHomestayModal] = useState(false);
-  const [newHomestay, setNewHomestay] = useState({ name: '', description: '', facilities_text: '', address: '', status: 'active', images_text: '' });
+  const [newHomestay, setNewHomestay] = useState({ name: '', description: '', facilities_text: '', address: '', status: 'active', images_text: '', note: '' });
   const [editHomestayImageFile, setEditHomestayImageFile] = useState(null);
 
   const [showRoomTypeModal, setShowRoomTypeModal] = useState(false);
-  const [newRoomType, setNewRoomType] = useState({ hotel_id: '', name: '', base_price: '', capacity: '', room_amenities_text: '' });
+  const [newRoomType, setNewRoomType] = useState({ hotel_id: '', name: '', base_price: '', capacity: '', room_amenities_text: '', note: '' });
   const [editRoomTypeImageFile, setEditRoomTypeImageFile] = useState(null);
   const [editRoomTypeAmenitiesFiles, setEditRoomTypeAmenitiesFiles] = useState([]);
 
   const [showRoomModal, setShowRoomModal] = useState(false);
-  const [newRoom, setNewRoom] = useState({ room_type_id: '', room_number: '', status: 'available' });
+  const [newRoom, setNewRoom] = useState({ room_type_id: '', room_number: '', status: 'available', note: '' });
 
   const [showEditHomestayModal, setShowEditHomestayModal] = useState(false);
   const [editingHomestay, setEditingHomestay] = useState(null);
@@ -95,6 +95,9 @@ const AdminDashboard = () => {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [roleModalData, setRoleModalData] = useState({ userId: null, newRole: 3, hotelId: '' });
 
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({ contactId: null, email: '', subject: '', content: '' });
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Filter States
   const [filterPayment, setFilterPayment] = useState('all');
@@ -368,6 +371,36 @@ const AdminDashboard = () => {
     }
   };
 
+  const submitSendEmail = async () => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    if (!emailData.subject || !emailData.content) {
+      showToast('Vui lòng nhập đầy đủ tiêu đề và nội dung email!', 'warning');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const res = await axios.post(`http://localhost:5000/api/admin/system/contacts/${emailData.contactId}/send-email`, {
+        email: emailData.email,
+        subject: emailData.subject,
+        content: emailData.content
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.data.success) {
+        showToast(res.data.message, 'success');
+        setContacts(contacts.map(c => c.id === emailData.contactId ? { ...c, status: 'replied' } : c));
+        setShowEmailModal(false);
+      }
+    } catch (err) {
+      showToast(err.response?.data?.error || err.response?.data?.message || 'Lỗi gửi email', 'error');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   // --- USERS MANAGEMENT ---
   const handleUpdateRole = (id, currentRoleId) => {
     setRoleModalData({ userId: id, newRole: currentRoleId || 3, hotelId: '' });
@@ -531,7 +564,7 @@ const AdminDashboard = () => {
       if (res.data.success) {
         showToast('Thêm Loại phòng thành công!', 'success');
         setShowRoomTypeModal(false);
-        setNewRoomType({ hotel_id: '', name: '', base_price: '', capacity: '', room_amenities_text: '' });
+        setNewRoomType({ hotel_id: '', name: '', base_price: '', capacity: '', room_amenities_text: '', note: '' });
         // Tải lại danh sách
         const resList = await axios.get('http://localhost:5000/api/admin/catalog/room-types', { headers: { Authorization: `Bearer ${token}` } });
         setRoomTypes(resList.data.data || []);
@@ -602,6 +635,7 @@ const AdminDashboard = () => {
       formData.append('base_price', editingRoomType.base_price);
       formData.append('capacity', editingRoomType.capacity);
       formData.append('room_amenities_text', editingRoomType.room_amenities_text || '');
+      formData.append('note', editingRoomType.note || '');
       formData.append('image_url', editingRoomType.image_url || '');
       formData.append('amenities_images_text', editingRoomType.amenities_images_text || '');
       if (editRoomTypeImageFile) {
@@ -1531,9 +1565,15 @@ const AdminDashboard = () => {
                                 Đánh dấu hoàn tất
                               </button>
                             )}
-                            <a href={`mailto:${contact.email}`} className="btn btn-primary btn-sm action-btn" style={{ textDecoration: 'none' }}>
+                            <button
+                              className="btn btn-primary btn-sm action-btn"
+                              onClick={() => {
+                                setEmailData({ contactId: contact.id, email: contact.email, subject: `Phản hồi: Tin nhắn hỗ trợ từ ${contact.ho_lot} ${contact.ten}`, content: '' });
+                                setShowEmailModal(true);
+                              }}
+                            >
                               <Mail size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Gửi Email
-                            </a>
+                            </button>
                             {contact.status === 'replied' && (
                               <span className="text-muted" style={{ marginLeft: 'auto' }}>
                                 <CheckCircle size={14} color="var(--status-confirmed)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Đã xử lý xong
@@ -1611,6 +1651,7 @@ const AdminDashboard = () => {
                           <th>Tên Loại phòng</th>
                           <th>Giá</th>
                           <th>Sức chứa</th>
+                          {/* <th>Ghi chú</th> */}
                           <th>Hành động</th>
                         </tr>
                       </thead>
@@ -1630,6 +1671,7 @@ const AdminDashboard = () => {
                               <td><strong>{rt.name}</strong></td>
                               <td><span className="price-tag">{price.toLocaleString('vi-VN')} ₫</span></td>
                               <td>{rt.capacity} người</td>
+                              {/* <td>{rt.note || 'Không có'}</td> */}
                               <td>
                                 <button className="btn btn-outline btn-sm action-btn" onClick={() => handleEditRoomType(rt)}>Sửa</button>
                                 <button className="btn btn-danger btn-sm action-btn" style={{ marginLeft: '4px' }} onClick={() => handleDeleteRoomType(rt.id)}>Xóa</button>
@@ -1790,6 +1832,42 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button className="btn btn-outline" onClick={() => setReplyingReviewId(null)}>Hủy</button>
               <button className="btn btn-primary" onClick={submitReplyReview}>Gửi Phản hồi</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="admin-modal-overlay" onClick={() => setShowEmailModal(false)}>
+          <div className="admin-modal-content glass-panel" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Mail size={20} color="#3b82f6" /> Gửi Email Phản Hồi</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Gửi đến: <strong>{emailData.email}</strong></label>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tiêu đề</label>
+                <input type="text" className="form-control" style={{ width: '100%' }} value={emailData.subject} onChange={e => setEmailData({ ...emailData, subject: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Nội dung email</label>
+                <textarea className="form-control" placeholder="Nhập nội dung email phản hồi..." style={{ width: '100%', resize: 'vertical' }} rows="6" value={emailData.content} onChange={e => setEmailData({ ...emailData, content: e.target.value })}></textarea>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem' }}>
+              <button className="btn btn-outline" onClick={() => setShowEmailModal(false)} disabled={isSendingEmail}>Hủy</button>
+              <button className="btn btn-primary" onClick={submitSendEmail} disabled={isSendingEmail}>
+                {isSendingEmail ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <RefreshCw size={16} className="spin-animation" /> Đang gửi...
+                  </span>
+                ) : (
+                  <>
+                    <Mail size={16} style={{ display: 'inline', marginRight: '6px' }} /> Gửi Email
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1987,7 +2065,7 @@ const AdminDashboard = () => {
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Sức chứa (người) *</label>
                   <input type="number" className="form-control" placeholder="Ví dụ: 2" style={{ width: '100%' }} value={newRoomType.capacity} onChange={e => setNewRoomType({ ...newRoomType, capacity: e.target.value })} />
                 </div>
-              </div>
+                 </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tiện ích trong phòng (cách nhau bởi dấu phẩy)</label>
                 <input type="text" className="form-control" placeholder="Ví dụ: Điều hòa, Máy sấy, Tivi..." style={{ width: '100%' }} value={newRoomType.room_amenities_text} onChange={e => setNewRoomType({ ...newRoomType, room_amenities_text: e.target.value })} />
@@ -2109,6 +2187,10 @@ const AdminDashboard = () => {
                 <label>Sức chứa (người lớn)</label>
                 <input type="number" required value={editingRoomType.capacity} onChange={(e) => setEditingRoomType({ ...editingRoomType, capacity: e.target.value })} className="form-control" />
               </div>
+              {/* <div className="form-group">
+                <label>Ghi chú</label>
+                <textarea className="form-control" value={editingRoomType.note || ''} onChange={(e) => setEditingRoomType({ ...editingRoomType, note: e.target.value })} placeholder="Nhập ghi chú" />
+              </div> */}
               <div className="form-group">
                 <label>Tiện ích trong phòng</label>
                 <input type="text" value={editingRoomType.room_amenities_text || ''} onChange={(e) => setEditingRoomType({ ...editingRoomType, room_amenities_text: e.target.value })} className="form-control" />

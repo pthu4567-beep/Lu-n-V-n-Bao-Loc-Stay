@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="footer-grid">
           <div className="footer-col">
             <div className="footer-logo">
-              <img src="/logo.png" alt="BaoLoc Stay Logo" className="footer-logo-img" />
+              <img src="/baolocstay_premium_logo.png" alt="BaoLoc Stay Logo" className="footer-logo-img" />
             </div>
             <p className="company-desc">Hệ thống đặt phòng homestay uy tín hàng đầu tại Bảo Lộc. Mang đến những trải nghiệm lưu trú tuyệt vời nhất.</p>
             <div className="contact-info">

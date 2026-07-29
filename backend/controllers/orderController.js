@@ -182,6 +182,35 @@ exports.updateBookingStatus = async (req, res) => {
     }
 };
 
+exports.getBookingById = async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const userId = req.user.id;
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('bookingId', sql.Int, bookingId);
+        const result = await request.query(`
+            SELECT b.*, h.name as homestayName, rt.name as roomName
+            FROM bookings b
+            JOIN hotels h ON b.hotel_id = h.id
+            LEFT JOIN booking_details bd ON b.id = bd.booking_id
+            LEFT JOIN rooms r ON bd.room_id = r.id
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
+            WHERE b.id = @bookingId
+        `);
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn đặt phòng!' });
+        }
+        if (String(result.recordset[0].user_id) !== String(userId) && req.user.roleId !== 1) {
+            return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
+        }
+        res.json({ success: true, data: result.recordset[0] });
+    } catch (err) {
+        console.error('Lỗi trong getBookingById:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
 exports.notifyPaid = async (req, res) => {
     try {
         const bookingId = parseInt(req.params.id);
@@ -191,14 +220,31 @@ exports.notifyPaid = async (req, res) => {
         // Query kiểm tra đơn hàng có tồn tại và thuộc về user không
         const checkReq = pool.request();
         checkReq.input('bookingId', sql.Int, bookingId);
-        const checkRes = await checkReq.query(`SELECT user_id FROM bookings WHERE id = @bookingId`);
+        const checkRes = await checkReq.query(`SELECT user_id, booking_status, created_at FROM bookings WHERE id = @bookingId`);
 
         if (checkRes.recordset.length === 0) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng!' });
         }
 
-        if (String(checkRes.recordset[0].user_id) !== String(userId)) {
+        const booking = checkRes.recordset[0];
+        if (String(booking.user_id) !== String(userId)) {
             return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
+        }
+
+        if (booking.booking_status === 'cancelled') {
+            return res.status(400).json({ success: false, message: 'Đơn đặt phòng này đã hết thời gian giữ phòng hoặc đã bị hủy. Vui lòng đặt lại đơn mới!' });
+        }
+
+        // Kiểm tra thời gian 15 phút (900 giây)
+        const diffSeconds = Math.floor((new Date() - new Date(booking.created_at)) / 1000);
+        if (booking.booking_status === 'pending_payment' && diffSeconds >= 900) {
+            const cancelReq = pool.request();
+            cancelReq.input('bookingId', sql.Int, bookingId);
+            await cancelReq.query(`
+                UPDATE bookings SET booking_status = 'cancelled' WHERE id = @bookingId AND booking_status = 'pending_payment';
+                UPDATE payments SET payment_status = 'cancelled' WHERE booking_id = @bookingId AND payment_status = 'pending';
+            `);
+            return res.status(400).json({ success: false, message: 'Đơn đặt phòng đã hết thời gian thanh toán (15 phút) và phòng không còn được giữ. Vui lòng quay lại trang chủ đặt phòng mới!' });
         }
 
         // Thực hiện 2 lệnh UPDATE

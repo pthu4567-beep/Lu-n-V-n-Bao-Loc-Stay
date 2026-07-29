@@ -13,6 +13,15 @@ const Auth = () => {
   const [isOtpStep, setIsOtpStep] = useState(false);
   const [otpToken, setOtpToken] = useState('');
   const [otp, setOtp] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (resendTimer > 0) {
+      timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendTimer]);
 
   // Form State
   const [email, setEmail] = useState('');
@@ -44,26 +53,17 @@ const Auth = () => {
   const evaluatePassword = (pwd) => {
     if (!pwd) return { score: 0, text: '', color: 'bg-gray-200' };
 
-    let score = 0;
-    const hasLettersAndNumbers = /[a-zA-Z]/.test(pwd) && /[0-9]/.test(pwd);
+    const hasLength = pwd.length >= 8;
+    const hasUpper = /[A-Z]/.test(pwd);
     const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
-    const hasUpperAndLower = /[a-z]/.test(pwd) && /[A-Z]/.test(pwd);
 
-    if (pwd.length >= 6) {
-      if (pwd.length >= 8 && hasLettersAndNumbers && hasUpperAndLower && hasSpecial) {
-        score = 3; // Mạnh
-      } else if (hasLettersAndNumbers || pwd.length >= 8) {
-        score = 2; // Tạm ổn
-      } else {
-        score = 1; // Yếu
-      }
+    if (hasLength && hasUpper && hasSpecial) {
+      return { score: 3, text: 'Mật khẩu đạt chuẩn bảo mật', color: 'bg-success' };
+    } else if (pwd.length >= 6 && (hasUpper || hasSpecial || hasLength)) {
+      return { score: 2, text: 'Mật khẩu chưa đủ 3 điều kiện bắt buộc', color: 'bg-warning' };
     } else {
-      score = 1; // Yếu (Dưới 6 ký tự)
+      return { score: 1, text: 'Mật khẩu yếu (Thiếu điều kiện bắt buộc)', color: 'bg-danger' };
     }
-
-    if (score === 1) return { score, text: 'Mật khẩu quá yếu', color: 'bg-danger' };
-    if (score === 2) return { score, text: 'Mật khẩu tạm ổn', color: 'bg-warning' };
-    if (score === 3) return { score, text: 'Mật khẩu rất mạnh', color: 'bg-success' };
   };
 
   const pwdStrength = evaluatePassword(password);
@@ -100,14 +100,36 @@ const Auth = () => {
       }
     } catch (err) {
       console.error("Lỗi đăng nhập:", err);
-      showAlert('Lỗi Đăng Nhập', `Chi tiết lỗi: ${err.message}\nPhản hồi: ${err.response ? JSON.stringify(err.response.data) : 'Không có phản hồi'}`, 'error');
       const errorMsg = err.response?.data?.error || 'Sai email hoặc mật khẩu!';
-      showToastMessage(errorMsg, 'error');
+      showAlert('Lỗi Đăng Nhập', errorMsg, 'error');
     }
   };
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
+
+    // [KIỂM TRA VÀ KHỐNG CHẾ MẬT KHẨU ĐĂNG KÝ]:
+    // 1. Kiểm tra độ dài tối thiểu 8 ký tự
+    if (password.length < 8) {
+      showAlert('Mật Khẩu Yếu', 'Mật khẩu phải có ít nhất 8 ký tự!', 'error');
+      return;
+    }
+    // 2. Kiểm tra phải có ít nhất 1 chữ in hoa (A-Z)
+    if (!/[A-Z]/.test(password)) {
+      showAlert('Mật Khẩu Yếu', 'Mật khẩu phải chứa ít nhất 1 chữ in hoa (A-Z)!', 'error');
+      return;
+    }
+    // 3. Kiểm tra phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      showAlert('Mật Khẩu Yếu', 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...)!', 'error');
+      return;
+    }
+    // 4. Kiểm tra mật khẩu xác nhận
+    if (password !== confirmPassword) {
+      showAlert('Lỗi Đăng Ký', 'Mật khẩu xác nhận không khớp!', 'error');
+      return;
+    }
+
     try {
       setEmailError('');
       const res = await axios.post('http://localhost:5000/api/auth/register', { email, password, phone });
@@ -120,12 +142,11 @@ const Auth = () => {
       }
     } catch (err) {
       console.error("Lỗi đăng ký:", err);
-      showAlert('Lỗi Đăng Ký', `Chi tiết lỗi: ${err.message}\nPhản hồi: ${err.response ? JSON.stringify(err.response.data) : 'Không có phản hồi'}`, 'error');
       const errorMsg = err.response?.data?.error || 'Đăng ký thất bại!';
+      showAlert('Lỗi Đăng Ký', errorMsg, 'error');
       if (errorMsg.includes('Email')) {
         setEmailError(errorMsg);
       }
-      showToastMessage(errorMsg, 'error');
     }
   };
 
@@ -144,6 +165,7 @@ const Auth = () => {
         if (res.data.otpToken) {
           setOtpToken(res.data.otpToken);
           setIsOtpStep(true);
+          setResendTimer(60);
         } else {
           setTimeout(() => { setIsForgotMode(false); }, 3000);
         }
@@ -152,6 +174,23 @@ const Auth = () => {
       console.error("Lỗi quên mật khẩu:", err);
       const errorMsg = err.response?.data?.error || 'Có lỗi xảy ra, vui lòng thử lại!';
       showToastMessage(errorMsg, 'error');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    try {
+      showToastMessage('Đang gửi lại mã OTP...', 'success');
+      const res = await axios.post('http://localhost:5000/api/auth/forgot-password', { email: email.trim() });
+      if (res.data.success) {
+        showToastMessage('Mã OTP mới đã được gửi!', 'success');
+        if (res.data.otpToken) {
+          setOtpToken(res.data.otpToken);
+        }
+        setResendTimer(60);
+      }
+    } catch (err) {
+      showToastMessage(err.response?.data?.error || 'Có lỗi xảy ra khi gửi lại OTP!', 'error');
     }
   };
 
@@ -292,6 +331,25 @@ const Auth = () => {
                       <button type="submit" className="btn-submit" disabled={!otp || otp.length < 6 || !isPasswordsMatch || pwdStrength.score < 2}>
                         Xác nhận & Đổi mật khẩu
                       </button>
+                      <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                        <span style={{ color: '#64748b', fontSize: '14px', marginRight: '8px' }}>Chưa nhận được mã?</span>
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={resendTimer > 0}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: resendTimer > 0 ? '#94a3b8' : '#0284c7',
+                            fontWeight: '600',
+                            cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            textDecoration: resendTimer > 0 ? 'none' : 'underline'
+                          }}
+                        >
+                          {resendTimer > 0 ? `Gửi lại sau (${resendTimer}s)` : 'Gửi lại mã OTP'}
+                        </button>
+                      </div>
                     </form>
                   </>
                 ) : (
@@ -440,6 +498,19 @@ const Auth = () => {
                           <div className={`pwd-progress ${pwdStrength.color}`} style={{ width: `${(pwdStrength.score / 3) * 100}%` }}></div>
                         </div>
                         <span className={`pwd-text text-${pwdStrength.color.replace('bg-', '')}`}>{pwdStrength.text}</span>
+                        
+                        {/* Live checklist cho người dùng biết thiếu gì */}
+                        <div style={{ fontSize: '0.8rem', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: password.length >= 8 ? '#10b981' : '#64748b' }}>
+                            {password.length >= 8 ? '✓' : '○'} Tối thiểu 8 ký tự
+                          </span>
+                          <span style={{ color: /[A-Z]/.test(password) ? '#10b981' : '#64748b' }}>
+                            {/[A-Z]/.test(password) ? '✓' : '○'} Chứa ít nhất 1 chữ in hoa (A-Z)
+                          </span>
+                          <span style={{ color: /[^A-Za-z0-9]/.test(password) ? '#10b981' : '#64748b' }}>
+                            {/[^A-Za-z0-9]/.test(password) ? '✓' : '○'} Chứa ít nhất 1 ký tự đặc biệt (@, #, $, ...)
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>

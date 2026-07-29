@@ -144,10 +144,12 @@ app.get('/api/homestays/:id', async (req, res) => {
         const imgReq = pool.request();
         imgReq.input('id', sql.Int, hotelId);
         const imgRes = await imgReq.query('SELECT image_url FROM hotel_images WHERE hotel_id = @id');
-        hotel.images = imgRes.recordset.map(r => r.image_url);
+        const dbImages = imgRes.recordset.map(r => r.image_url);
         if (hotel.images_text) {
-            hotel.images = [hotel.images_text, ...hotel.images.filter(img => img !== hotel.images_text)];
-        } else if (hotel.images.length === 0) {
+            hotel.images = [hotel.images_text];
+        } else if (dbImages.length > 0) {
+            hotel.images = [dbImages[0]];
+        } else {
             hotel.images = ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?q=80&w=1200'];
         }
 
@@ -166,6 +168,7 @@ app.get('/api/homestays/:id', async (req, res) => {
                           FROM booking_details bd
                           JOIN bookings b ON bd.booking_id = b.id
                           WHERE b.booking_status NOT IN ('cancelled', 'rejected')
+                            AND NOT (b.booking_status = 'pending_payment' AND DATEDIFF(second, b.created_at, GETDATE()) >= 900)
                             AND @cin IS NOT NULL AND @cout IS NOT NULL
                             AND bd.check_in_datetime < @cout
                             AND bd.check_out_datetime > @cin
@@ -229,6 +232,7 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
                           FROM booking_details bd
                           JOIN bookings b ON bd.booking_id = b.id
                           WHERE b.booking_status NOT IN ('cancelled', 'rejected')
+                            AND NOT (b.booking_status = 'pending_payment' AND DATEDIFF(second, b.created_at, GETDATE()) >= 900)
                             AND bd.check_in_datetime < @cout
                             AND bd.check_out_datetime > @cin
                       )
@@ -301,7 +305,7 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
                 });
             }
 
-            res.json({ success: true, bookingId: newBookingId, roomId: allRoomIdsToBook[0], depositAmount, remainingAmount, message: 'Đặt phòng thành công!' });
+            res.json({ success: true, bookingId: newBookingId, roomId: allRoomIdsToBook[0], depositAmount, remainingAmount, createdAt: new Date().toISOString(), message: 'Đặt phòng thành công!' });
         } catch (txnErr) {
             await transaction.rollback();
             throw txnErr;
@@ -346,6 +350,18 @@ app.post('/api/auth/register', async (req, res) => {
     if (!email || !password) {
         return res.status(400).json({ error: 'Vui lòng điền đầy đủ email và mật khẩu!' });
     }
+
+    // [KIỂM TRA BẢO MẬT MẬT KHẨU]: Khống chế 8 ký tự, có chữ in hoa và ký tự đặc biệt
+    if (password.length < 8) {
+        return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 8 ký tự!' });
+    }
+    if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({ error: 'Mật khẩu phải chứa ít nhất 1 chữ in hoa (A-Z)!' });
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        return res.status(400).json({ error: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...)!' });
+    }
+
     try {
         const pool = await poolPromise;
         if (!pool) return res.status(500).json({ error: 'Chưa kết nối được Database' });
@@ -518,7 +534,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         };
         const otpToken = jwt.sign(payload, secret, { expiresIn: '5m' }); // OTP có hiệu lực 5 phút
 
-        await sendOTPEmail(user.email, otp, 'forgot');
+        sendOTPEmail(user.email, otp, 'forgot').catch(err => console.error('[Background Email Error]:', err.message));
 
         res.json({ 
             success: true, 
@@ -674,7 +690,7 @@ app.post('/api/users/request-change-password', verifyToken, async (req, res) => 
         };
         const changePwdToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '5m' }); // Token có hiệu lực 5 phút
 
-        await sendOTPEmail(user.email, otp, 'change');
+        sendOTPEmail(user.email, otp, 'change').catch(err => console.error('[Background Email Error]:', err.message));
 
         res.json({ 
             success: true, 
@@ -876,7 +892,7 @@ app.post('/api/bookings/:id/apply-promotion', verifyToken, async (req, res) => {
         const checkPromo = await pool.request()
             .input('code', sql.VarChar, discount_code)
             .input('hotelId', sql.Int, booking.hotel_id)
-            .query('SELECT id, discount_percent, valid_until FROM promotions WHERE discount_code = @code AND hotel_id = @hotelId');
+            .query('SELECT TOP 1 id, discount_percent, valid_until FROM promotions WHERE discount_code = @code AND (hotel_id = @hotelId OR hotel_id IS NULL) ORDER BY (CASE WHEN hotel_id = @hotelId THEN 0 ELSE 1 END)');
 
         if (checkPromo.recordset.length === 0) {
             return res.status(404).json({ error: 'Mã giảm giá không hợp lệ cho Homestay này' });
@@ -1139,7 +1155,7 @@ app.use('/api/admin/dashboard', verifyToken, isOwner, dashboardRoutes);
 const notificationRoutes = require('./routes/notificationRoutes');
 app.use('/api/notifications', notificationRoutes);
 
-const { startAutoApproveJob } = require('./cron');
+const { startAutoApproveJob, startExpiredBookingCleanupJob } = require('./cron');
 
 // User routes
 app.use('/api/bookings', bookingRoutes);
@@ -1156,4 +1172,6 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
     console.log(`Backend Server with WebSockets is running on port ${PORT}`);
     startAutoApproveJob(); // Bắt đầu cron job tự động duyệt đơn
+    startExpiredBookingCleanupJob(io); // Bắt đầu cron job tự động hủy đơn quá thời gian giữ phòng (15 phút)
 });
+

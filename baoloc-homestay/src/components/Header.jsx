@@ -10,7 +10,7 @@ const Header = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
   const [showDropdown, setShowDropdown] = useState(false);
   const [user, setUser] = useState(null);
-  
+
   // Thông báo
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
@@ -34,34 +34,34 @@ const Header = () => {
 
   useEffect(() => {
     if (isLoggedIn) {
-        const fetchNotifs = async () => {
-            try {
-                const token = sessionStorage.getItem('token');
-                if(!token) return;
-                const res = await axios.get('http://localhost:5000/api/notifications', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (res.data && res.data.success) {
-                    setNotifications(res.data.data);
-                }
-            } catch(e) {
-                console.log("Lỗi tải thông báo", e);
-            }
-        };
-        fetchNotifs();
-        const interval = setInterval(fetchNotifs, 30000); // 30s check 1 lần
-        return () => clearInterval(interval);
+      const fetchNotifs = async () => {
+        try {
+          const token = sessionStorage.getItem('token');
+          if (!token) return;
+          const res = await axios.get('http://localhost:5000/api/notifications', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.data && res.data.success) {
+            setNotifications(res.data.data);
+          }
+        } catch (e) {
+          console.log("Lỗi tải thông báo", e);
+        }
+      };
+      fetchNotifs();
+      const interval = setInterval(fetchNotifs, 30000); // 30s check 1 lần
+      return () => clearInterval(interval);
     }
   }, [isLoggedIn]);
 
   const markAsRead = async (id) => {
-      try {
-          const token = sessionStorage.getItem('token');
-          await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
-          setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
-      } catch(e) {}
+    try {
+      const token = sessionStorage.getItem('token');
+      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (e) { }
   };
 
   const handleLogout = () => {
@@ -76,18 +76,19 @@ const Header = () => {
   return (
     <header className="fixed-header">
       <div className="header-container container">
-        {/* Left: Logo */}
-        <div className="logo-section" onClick={() => navigate('/')}>
-          <img src="/logo.png" alt="BaoLoc Stay Logo" className="logo-img" />
-        </div>
+        {/* Left: Logo & Nav */}
+        <div className="header-left">
+          <div className="logo-section" onClick={() => navigate('/')}>
+            <img src="/baolocstay_premium_logo.png" alt="BaoLoc Stay Logo" className="logo-img" />
+          </div>
 
-        {/* Center: Navigation */}
-        <nav className="main-nav">
-          <a href="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Trang chủ</a>
-          <a href="/search" className={`nav-link ${location.pathname === '/search' ? 'active' : ''}`}>Khám phá Homestay</a>
-          <a href="/promotions" className={`nav-link ${location.pathname === '/promotions' ? 'active' : ''}`}>Khuyến mãi</a>
-          <a href="/#contact" className="nav-link">Liên hệ</a>
-        </nav>
+          <nav className="main-nav">
+            <a href="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Trang chủ</a>
+            <a href="/search" className={`nav-link ${location.pathname === '/search' ? 'active' : ''}`}>Khám phá Homestay</a>
+            <a href="/promotions" className={`nav-link ${location.pathname === '/promotions' ? 'active' : ''}`}>Khuyến mãi</a>
+            <a href="/#contact" className="nav-link">Liên hệ</a>
+          </nav>
+        </div>
 
         {/* Right: Auth */}
         <div className="auth-section">
