@@ -219,13 +219,13 @@
    ================================================== */
 .hero {
   position: relative;
-  height: 90vh;
-  min-height: 600px;
+  min-height: 90vh;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 72px;
-  /* Offset header */
+  padding-top: 120px; /* Offset header + padding */
+  padding-bottom: 40px;
 }
 
 .hero-bg {
@@ -306,18 +306,20 @@
   transition: all 0.3s ease;
 }
 
-.search-box.sticky-search {
-  position: fixed;
-  top: 90px;
-  /* Below the 72px fixed header */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 990;
-  width: 90%;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  background: white;
-  border: 1px solid var(--primary-100);
-  animation: slideDownSearch 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+@media (min-width: 992px) {
+  .search-box.sticky-search {
+    position: fixed;
+    top: 90px;
+    /* Below the 72px fixed header */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 990;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    background: white;
+    border: 1px solid var(--primary-100);
+    animation: slideDownSearch 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
 }
 
 @keyframes slideDownSearch {

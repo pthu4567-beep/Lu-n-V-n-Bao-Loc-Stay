@@ -9,6 +9,7 @@ const Header = () => {
   const location = useLocation();
   const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [user, setUser] = useState(null);
 
   // Thông báo
@@ -110,7 +111,7 @@ const Header = () => {
                   )}
                 </div>
                 {showNotif && (
-                  <div className="dropdown-menu notif-menu" style={{ width: '320px', right: '-10px', padding: '12px', top: '150%', cursor: 'default' }}>
+                  <div className="dropdown-menu notif-menu" style={{ padding: '12px', cursor: 'default' }}>
                     <h4 style={{ margin: '0 0 10px 0', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', fontSize: '15px' }}>Thông báo của bạn</h4>
                     {notifications.length === 0 ? <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', padding: '10px 0' }}>Chưa có thông báo nào</p> : (
                       <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -137,7 +138,13 @@ const Header = () => {
               </div>
 
               <div className="user-profile" onClick={() => setShowDropdown(!showDropdown)}>
-                <img src={user?.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : "https://i.pravatar.cc/150?img=32"} alt="Avatar" className="avatar" />
+                {user?.avatar ? (
+                  <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`} alt="Avatar" className="avatar" />
+                ) : (
+                  <div className="avatar" style={{ backgroundColor: 'var(--primary-500, #0ea5e9)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>
+                    {user?.full_name ? user.full_name.substring(0, 2).toUpperCase() : (user?.email ? user.email.substring(0, 2).toUpperCase() : 'KH')}
+                  </div>
+                )}
                 <span className="username">{user ? (user.full_name || user.email.split('@')[0]) : 'Khách Hàng'}</span>
                 <ChevronDown size={16} />
 
@@ -158,11 +165,26 @@ const Header = () => {
             </div>
           )}
 
-          <button className="mobile-menu-btn">
+          <button className="mobile-menu-btn" onClick={() => setShowMobileMenu(!showMobileMenu)}>
             <Menu size={24} />
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {showMobileMenu && (
+        <div className="mobile-menu-overlay animate-fade-in" style={{ position: 'absolute', top: '72px', left: 0, width: '100%', background: 'white', borderTop: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <a href="/" style={{ color: '#0f172a', fontWeight: 600, padding: '0.75rem 1rem', background: location.pathname === '/' ? '#f0f9ff' : 'transparent', borderRadius: '8px' }} onClick={() => setShowMobileMenu(false)}>Trang chủ</a>
+          <a href="/search" style={{ color: '#0f172a', fontWeight: 600, padding: '0.75rem 1rem', background: location.pathname === '/search' ? '#f0f9ff' : 'transparent', borderRadius: '8px' }} onClick={() => setShowMobileMenu(false)}>Khám phá Homestay</a>
+          <a href="/promotions" style={{ color: '#0f172a', fontWeight: 600, padding: '0.75rem 1rem', background: location.pathname === '/promotions' ? '#f0f9ff' : 'transparent', borderRadius: '8px' }} onClick={() => setShowMobileMenu(false)}>Khuyến mãi</a>
+          <a href="/#contact" style={{ color: '#0f172a', fontWeight: 600, padding: '0.75rem 1rem', borderRadius: '8px' }} onClick={() => setShowMobileMenu(false)}>Liên hệ</a>
+          {!isLoggedIn && (
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
+                <button onClick={() => { navigate('/auth'); setShowMobileMenu(false); }} style={{ background: '#0284c7', color: 'white', padding: '0.75rem', borderRadius: '8px', border: 'none', fontWeight: 600 }}>Đăng nhập / Đăng ký</button>
+             </div>
+          )}
+        </div>
+      )}
     </header>
   );
 };

@@ -49,10 +49,20 @@ const Search = () => {
     // 1. Lọc theo giá
     if (h.price > priceRange) return false;
     
-    // 2. Lọc theo hình thức thuê (nếu database có lưu)
+    // 2. Lọc theo hình thức thuê (Radio buttons: Tất cả / Theo ngày / Theo giờ)
+    // Nếu người dùng chọn một hình thức cụ thể (khác 'all') thì mới tiến hành lọc
     if (rentType !== 'all') {
+      // Lấy ra chuỗi quy định hình thức thuê của homestay hiện tại (từ CSDL)
+      // Sử dụng || '' để đề phòng trường hợp dữ liệu bị rỗng (null/undefined) gây lỗi khi gọi hàm toLowerCase()
       const hRent = h.rent_type || h.rentType || '';
+      
+      // Nếu người dùng đang chọn "Thuê theo ngày" ('day')
+      // Nhìn vào dữ liệu hRent của homestay, nếu KHÔNG chứa chữ 'ngày' và KHÔNG chứa chữ 'day'
+      // -> Nghĩa là homestay này không cho thuê theo ngày -> Trả về false (Loại bỏ khỏi kết quả)
       if (rentType === 'day' && !hRent.toLowerCase().includes('ngày') && !hRent.toLowerCase().includes('day')) return false;
+      
+      // Tương tự, nếu người dùng đang chọn "Thuê theo giờ" ('hour')
+      // Mà dữ liệu homestay KHÔNG chứa chữ 'giờ' và 'hour' -> Trả về false (Loại bỏ)
       if (rentType === 'hour' && !hRent.toLowerCase().includes('giờ') && !hRent.toLowerCase().includes('hour')) return false;
     }
 
@@ -85,26 +95,38 @@ const Search = () => {
         <div className="search-layout">
           {/* Sidebar Filter */}
           <aside className="sidebar">
-            <div className="filter-block">
-              <h3><Filter size={18} /> Hình thức thuê</h3>
-              <div className="radio-group">
-                <label className="custom-radio">
-                  <input type="radio" name="rentType" checked={rentType === 'all'} onChange={() => setRentType('all')} />
-                  <span className="radio-mark"></span>
-                  Tất cả
-                </label>
-                <label className="custom-radio">
-                  <input type="radio" name="rentType" checked={rentType === 'day'} onChange={() => setRentType('day')} />
-                  <span className="radio-mark"></span>
-                  Thuê theo ngày
-                </label>
-                <label className="custom-radio">
-                  <input type="radio" name="rentType" checked={rentType === 'hour'} onChange={() => setRentType('hour')} />
-                  <span className="radio-mark"></span>
-                  Thuê theo giờ
-                </label>
+            {/* 
+              Khối Giao diện (UI) Lọc Hình thức thuê 
+              - Sử dụng thẻ <input type="radio"> (nút chọn tròn) để đảm bảo người dùng chỉ được chọn 1 trong 3.
+              - Thuộc tính 'checked' dùng để đánh dấu xem trạng thái (state) 'rentType' hiện tại có khớp ô này không.
+              - Sự kiện 'onChange' sẽ gọi hàm setRentType() để thay đổi trạng thái khi click.
+              Mỗi khi setRentType chạy, React sẽ tự động render lại trang và chạy lại hàm lọc ở trên.
+            */}
+            {false && (
+              <div className="filter-block">
+                <h3><Filter size={18} /> Hình thức thuê</h3>
+                <div className="radio-group">
+                  <label className="custom-radio">
+                    {/* Ô Tất cả: gán giá trị rentType thành 'all' */}
+                    <input type="radio" name="rentType" checked={rentType === 'all'} onChange={() => setRentType('all')} />
+                    <span className="radio-mark"></span>
+                    Tất cả
+                  </label>
+                  <label className="custom-radio">
+                    {/* Ô Thuê theo ngày: gán giá trị rentType thành 'day' */}
+                    <input type="radio" name="rentType" checked={rentType === 'day'} onChange={() => setRentType('day')} />
+                    <span className="radio-mark"></span>
+                    Thuê theo ngày
+                  </label>
+                  <label className="custom-radio">
+                    {/* Ô Thuê theo giờ: gán giá trị rentType thành 'hour' */}
+                    <input type="radio" name="rentType" checked={rentType === 'hour'} onChange={() => setRentType('hour')} />
+                    <span className="radio-mark"></span>
+                    Thuê theo giờ
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="filter-block">
               <h3>Mức giá tối đa</h3>

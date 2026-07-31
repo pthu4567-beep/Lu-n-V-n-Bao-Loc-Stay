@@ -101,12 +101,13 @@ app.get('/api/homestays', async (req, res) => {
                 const ratingReq = pool.request();
                 ratingReq.input('hid', sql.Int, hotel.id);
                 const ratingRes = await ratingReq.query(`
-                    SELECT AVG(CAST(r.rating_score AS FLOAT)) as avg_rating 
+                    SELECT AVG(CAST(r.rating_score AS FLOAT)) as avg_rating, COUNT(r.id) as review_count
                     FROM reviews r 
                     JOIN bookings b ON r.booking_id = b.id 
                     WHERE b.hotel_id = @hid
                 `);
                 hotel.rating = ratingRes.recordset[0]?.avg_rating ? parseFloat(ratingRes.recordset[0].avg_rating).toFixed(1) : 4.5;
+                hotel.review_count = ratingRes.recordset[0]?.review_count || 0;
             } catch (innerErr) {
                 console.log('Lỗi khi lấy thông tin bổ sung cho hotel', hotel.id, ':', innerErr.message);
                 hotel.img = hotel.images_text || 'https://images.unsplash.com/photo-1542640244-7e672d6cb466?q=80&w=800';
@@ -204,7 +205,7 @@ app.get('/api/homestays/:id', async (req, res) => {
 // API 3: Đặt phòng (Có chống trùng lặp & Chống overbooking tuyệt đối)
 // ==========================================
 app.post('/api/bookings', verifyToken, async (req, res) => {
-    const { hotelId, rooms, checkIn, checkOut, totalAmount, guestCount } = req.body;
+    const { hotelId, rooms, checkIn, checkOut, totalAmount, baseAmount, discountPercent, discountAmount, guestCount } = req.body;
     const userId = req.user.id; // Lấy an toàn từ token JWT đã xác thực
     try {
         const pool = await poolPromise;
@@ -259,14 +260,18 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
             const bookReq = new sql.Request(transaction);
             bookReq.input('uId', sql.Int, userId);
             bookReq.input('hId', sql.Int, hotelId);
-            bookReq.input('total', sql.Decimal(18, 2), totalAmount);
+            const finalTotal = baseAmount || totalAmount;
+            bookReq.input('total', sql.Decimal(18, 2), finalTotal);
             bookReq.input('deposit', sql.Decimal(18, 2), depositAmount);
             bookReq.input('remaining', sql.Decimal(18, 2), remainingAmount);
             bookReq.input('guestCount', sql.Int, guestCount || 1);
+            bookReq.input('discountPct', sql.Float, discountPercent || 0);
+            bookReq.input('discountAmt', sql.Decimal(18, 2), discountAmount || 0);
+            
             const bookRes = await bookReq.query(`
-                INSERT INTO bookings (user_id, hotel_id, total_amount, deposit_amount, remaining_amount, booking_status, guest_count, created_at)
+                INSERT INTO bookings (user_id, hotel_id, total_amount, deposit_amount, remaining_amount, booking_status, guest_count, created_at, discount_percent, discount_amount)
                 OUTPUT INSERTED.id
-                VALUES (@uId, @hId, @total, @deposit, @remaining, 'pending_payment', @guestCount, GETDATE())
+                VALUES (@uId, @hId, @total, @deposit, @remaining, 'pending_payment', @guestCount, GETDATE(), @discountPct, @discountAmt)
             `);
             const newBookingId = bookRes.recordset[0].id;
 

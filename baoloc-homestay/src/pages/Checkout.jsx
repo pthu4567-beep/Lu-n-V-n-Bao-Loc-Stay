@@ -17,12 +17,16 @@ const Checkout = () => {
   const hotelName = searchParams.get('hotel') || 'Homestay';
   const roomName = searchParams.get('room') || 'Phòng Tiêu Chuẩn';
 
+  const initialDiscountAmt = parseInt(searchParams.get('discountAmt')) || 0;
+  const initialDiscountPct = parseInt(searchParams.get('discountPct')) || 0;
+
   const [amount, setAmount] = useState(initialAmount);
   const [total, setTotal] = useState(initialTotal);
   const [copied, setCopied] = useState('');
   const [discount, setDiscount] = useState('');
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(initialDiscountAmt);
+  const [discountPercent, setDiscountPercent] = useState(initialDiscountPct);
+  const [guestCount, setGuestCount] = useState(0);
 
   const [savedVouchers, setSavedVouchers] = useState([]);
   const [showVoucherList, setShowVoucherList] = useState(false);
@@ -50,6 +54,9 @@ const Checkout = () => {
           }
           if (!initialAmount && b.deposit_amount) setAmount(b.deposit_amount);
           if (!initialTotal && b.total_amount) setTotal(b.total_amount);
+          if (!initialDiscountAmt && b.discount_amount) setDiscountAmount(b.discount_amount);
+          if (!initialDiscountPct && b.discount_percent) setDiscountPercent(b.discount_percent);
+          if (b.guest_count) setGuestCount(b.guest_count);
         }
       } catch (err) {
         console.error('Lỗi khi tải thông tin đơn đặt phòng:', err);
@@ -121,19 +128,21 @@ const Checkout = () => {
     setTimeout(() => setCopied(''), 2000);
   };
 
-  const handleApplyDiscount = async () => {
+  const handleApplyDiscount = async (overrideCode) => {
+    const codeToApply = typeof overrideCode === 'string' ? overrideCode : discount;
     if (isExpired) return showAlert('Lỗi', 'Đơn đặt phòng đã hết thời gian giữ phòng (15 phút)', 'warning');
-    if (!discount.trim()) return showAlert('Lỗi', 'Vui lòng nhập mã giảm giá', 'warning');
+    if (!codeToApply.trim()) return showAlert('Lỗi', 'Vui lòng nhập mã giảm giá', 'warning');
     try {
       const token = sessionStorage.getItem('token');
       const res = await axios.post(`http://localhost:5000/api/bookings/${bookingId}/apply-promotion`, 
-        { discount_code: discount },
+        { discount_code: codeToApply },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.data.success) {
         setDiscountPercent(res.data.discount_percent);
         setDiscountAmount(res.data.discount_amount);
         setAmount(res.data.new_deposit);
+        setDiscount(codeToApply); // Ensure input shows the applied code
         showAlert('Thành công', res.data.message, 'success');
       }
     } catch (err) {
@@ -221,6 +230,12 @@ const Checkout = () => {
                   <span className="label">Phòng:</span>
                   <span className="value">{roomName}</span>
                 </div>
+                {guestCount > 0 && (
+                  <div className="summary-item">
+                    <span className="label">Số lượng khách:</span>
+                    <span className="value">{guestCount} người</span>
+                  </div>
+                )}
               </div>
 
               <div className="discount-section" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -253,9 +268,9 @@ const Checkout = () => {
                             </div>
                           </div>
                           <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={() => {
-                            setDiscount(v.discount_code);
                             setShowVoucherList(false);
-                          }}>Chọn</button>
+                            handleApplyDiscount(v.discount_code);
+                          }}>Áp dụng</button>
                         </div>
                       ))}
                     </div>

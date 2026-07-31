@@ -15,7 +15,7 @@ const parseAmenitiesImagesCount = (text) => {
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed)) return parsed.length;
     return 1;
-  } catch(e) {
+  } catch (e) {
     return text.split(',').filter(x => x.trim()).length;
   }
 };
@@ -191,7 +191,7 @@ const AdminDashboard = () => {
             headers: { Authorization: `Bearer ${token}` }
           });
           setPromotionsList(res.data.data || []);
-          
+
           if (homestays.length === 0) {
             const hRes = await axios.get('http://localhost:5000/api/admin/catalog/hotels', {
               headers: { Authorization: `Bearer ${token}` }
@@ -234,11 +234,15 @@ const AdminDashboard = () => {
   };
 
   // Thu tiền phần còn lại
-  const handlePayRemaining = async (bookingId) => {
+  const handlePayRemaining = async (order) => {
+    const bookingId = order.bookingId || order.id;
     const token = sessionStorage.getItem('token');
     if (!token) return;
 
-    const confirmResult = await showConfirm('Thu tiền', `Xác nhận đã thu đủ số tiền còn lại cho đơn hàng #${bookingId}?`);
+    const amount = order.remaining_amount || 0;
+    const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+
+    const confirmResult = await showConfirm('Thu tiền', `Xác nhận đã thu đủ số tiền còn lại (${formattedAmount}) cho đơn hàng #${bookingId}?`);
     if (!confirmResult.isConfirmed) return;
 
     try {
@@ -388,7 +392,7 @@ const AdminDashboard = () => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       if (res.data.success) {
         showToast(res.data.message, 'success');
         setContacts(contacts.map(c => c.id === emailData.contactId ? { ...c, status: 'replied' } : c));
@@ -593,11 +597,11 @@ const AdminDashboard = () => {
         formData.append('image', editHomestayImageFile);
       }
 
-      await axios.put(`http://localhost:5000/api/admin/catalog/hotels/${editingHomestay.id}`, formData, { 
-        headers: { 
+      await axios.put(`http://localhost:5000/api/admin/catalog/hotels/${editingHomestay.id}`, formData, {
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
-        } 
+        }
       });
       showToast('Cập nhật khách sạn thành công', 'success');
       setShowEditHomestayModal(false);
@@ -647,11 +651,11 @@ const AdminDashboard = () => {
         }
       }
 
-      await axios.put(`http://localhost:5000/api/admin/catalog/room-types/${editingRoomType.id}`, formData, { 
-        headers: { 
+      await axios.put(`http://localhost:5000/api/admin/catalog/room-types/${editingRoomType.id}`, formData, {
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
-        } 
+        }
       });
       showToast('Cập nhật loại phòng thành công', 'success');
       setShowEditRoomTypeModal(false);
@@ -805,23 +809,23 @@ const AdminDashboard = () => {
           >
             <PieChart size={18} /> Tổng quan
           </button>
-          
+
           <div className="sidebar-heading">Quản lý Đơn hàng</div>
           <button
             className={`nav-btn ${activeTab === 'revenue' ? 'active' : ''}`}
             onClick={() => setActiveTab('revenue')}
           >
-            <DollarSign size={18} /> Quản lý Đơn & Doanh thu
+            <DollarSign size={18} /> Quản lý Doanh thu
           </button>
           {user.roleId === 1 && (
             <button
               className={`nav-btn ${activeTab === 'payments' ? 'active' : ''}`}
               onClick={() => setActiveTab('payments')}
             >
-              <ShieldCheck size={18} /> Duyệt thanh toán VietQR
+              <ShieldCheck size={18} /> Quản lý Đơn hàng
             </button>
           )}
-          
+
           {user.roleId !== 4 && (
             <>
               <div className="sidebar-heading">Quản lý Lưu trú</div>
@@ -1032,95 +1036,95 @@ const AdminDashboard = () => {
                                   </span>
                                 </div>
                                 {filteredTopRoomType && (
-                                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                     <Award size={18} color="#f59e0b" />
-                                     <span style={{ fontSize: '0.9rem', color: '#475569' }}>
-                                       Phòng đặt nhiều nhất: <strong>{filteredTopRoomType.name}</strong> ({filteredTopRoomType.totalBookings} lượt)
-                                     </span>
-                                   </div>
+                                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Award size={18} color="#f59e0b" />
+                                    <span style={{ fontSize: '0.9rem', color: '#475569' }}>
+                                      Phòng đặt nhiều nhất: <strong>{filteredTopRoomType.name}</strong> ({filteredTopRoomType.totalBookings} lượt)
+                                    </span>
+                                  </div>
                                 )}
                               </div>
                             </div>
                           )}
-                        <table className="admin-table">
-                          <thead>
-                            <tr>
-                              <th>Mã Đơn</th>
-                              <th>Khách hàng</th>
-                              <th>Homestay</th>
-                              <th>Phòng</th>
-                              <th>Số tiền (VNĐ)</th>
-                              <th>Trạng thái</th>
-                              <th>Ngày tạo</th>
-                              {user && user.roleId !== 1 && <th style={{ textAlign: 'center' }}>Hành động</th>}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {validRevenue.map((p, index) => {
-                              const st = p.status || p.payment_status || 'pending';
-                              return (
-                                <tr key={`${p.id || p.bookingId}-${index}`}>
-                                  <td>#{p.id || p.bookingId}</td>
-                                  <td>{p.guest_name || p.userEmail}</td>
-                                  <td>{p.homestayName || 'Homestay'}</td>
-                                  <td>{p.roomName || 'Phòng'}</td>
-                                  <td style={{ fontWeight: 'bold', color: '#10b981' }}>
-                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.amount || p.total_amount || 0)}
-                                  </td>
-                                  <td>
-                                    <span className={`status-badge status-${st === 'checked_in' ? 'confirmed' : st}`}>
-                                      {(st === 'paid' || st === 'confirmed') ? 'Đã thanh toán' : (st === 'checked_in' ? 'Đang sử dụng' : (st === 'completed' ? 'Hoàn tất' : st))}
-                                    </span>
-                                  </td>
-                                  <td>{p.created_at ? formatLocalDateOnly(p.created_at) : ''}</td>
-                                  {user && user.roleId !== 1 && (
-                                    <td style={{ textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                      {(st === 'paid' || st === 'confirmed') && (
-                                        <button
-                                          className="btn btn-sm"
-                                          onClick={() => handleCheckIn(p.id || p.bookingId)}
-                                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
-                                        >
-                                          <ArrowRight size={14} /> Nhận phòng
-                                        </button>
-                                      )}
-                                      {st === 'checked_in' && (
-                                        <button
-                                          className="btn btn-sm"
-                                          onClick={() => handleCheckOut(p.id || p.bookingId)}
-                                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
-                                        >
-                                          <LogOut size={14} /> Trả phòng
-                                        </button>
-                                      )}
-                                      {user && user.roleId !== 4 && (
-                                        <button
-                                          className="btn btn-sm"
-                                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
-                                          onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
-                                          onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
-                                        >
-                                          <Trash2 size={16} />
-                                        </button>
-                                      )}
-                                    </td>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                            {validRevenue.length === 0 && (
-                              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>Chưa có dữ liệu doanh thu</td></tr>
-                            )}
-                            {validRevenue.length > 0 && (
-                              <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
-                                <td colSpan="4" style={{ textAlign: 'right', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>TỔNG CỘNG:</td>
-                                <td colSpan="4" style={{ color: '#10b981', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>
-                                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalRevenue)}
-                                </td>
+                          <table className="admin-table">
+                            <thead>
+                              <tr>
+                                <th>Mã Đơn</th>
+                                <th>Khách hàng</th>
+                                <th>Homestay</th>
+                                <th>Phòng</th>
+                                <th>Số tiền (VNĐ)</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày tạo</th>
+                                {user && user.roleId !== 1 && <th style={{ textAlign: 'center' }}>Hành động</th>}
                               </tr>
-                            )}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {validRevenue.map((p, index) => {
+                                const st = p.status || p.payment_status || 'pending';
+                                return (
+                                  <tr key={`${p.id || p.bookingId}-${index}`}>
+                                    <td>#{p.id || p.bookingId}</td>
+                                    <td>{p.guest_name || p.userEmail}</td>
+                                    <td>{p.homestayName || 'Homestay'}</td>
+                                    <td>{p.roomName || 'Phòng'}</td>
+                                    <td style={{ fontWeight: 'bold', color: '#10b981' }}>
+                                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.amount || p.total_amount || 0)}
+                                    </td>
+                                    <td>
+                                      <span className={`status-badge status-${st === 'checked_in' ? 'confirmed' : st}`}>
+                                        {(st === 'paid' || st === 'confirmed') ? 'Đã thanh toán' : (st === 'checked_in' ? 'Đang sử dụng' : (st === 'completed' ? 'Hoàn tất' : st))}
+                                      </span>
+                                    </td>
+                                    <td>{p.created_at ? formatLocalDateOnly(p.created_at) : ''}</td>
+                                    {user && user.roleId !== 1 && (
+                                      <td style={{ textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                        {(st === 'paid' || st === 'confirmed') && (
+                                          <button
+                                            className="btn btn-sm"
+                                            onClick={() => handleCheckIn(p.id || p.bookingId)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
+                                          >
+                                            <ArrowRight size={14} /> Nhận phòng
+                                          </button>
+                                        )}
+                                        {st === 'checked_in' && (
+                                          <button
+                                            className="btn btn-sm"
+                                            onClick={() => handleCheckOut(p.id || p.bookingId)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
+                                          >
+                                            <LogOut size={14} /> Trả phòng
+                                          </button>
+                                        )}
+                                        {user && user.roleId !== 4 && (
+                                          <button
+                                            className="btn btn-sm"
+                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: '#94a3b8', border: '1px solid transparent', borderRadius: '6px', padding: '4px 8px', transition: 'all 0.2s' }}
+                                            onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent'; }}
+                                            onClick={() => handleDeleteOrder(p.id || p.bookingId)} title="Xóa đơn hàng"
+                                          >
+                                            <Trash2 size={16} />
+                                          </button>
+                                        )}
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                              {validRevenue.length === 0 && (
+                                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>Chưa có dữ liệu doanh thu</td></tr>
+                              )}
+                              {validRevenue.length > 0 && (
+                                <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
+                                  <td colSpan="4" style={{ textAlign: 'right', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>TỔNG CỘNG:</td>
+                                  <td colSpan="4" style={{ color: '#10b981', fontSize: '1.1rem', paddingTop: '15px', paddingBottom: '15px' }}>
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalRevenue)}
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </>
                       );
                     })()}
@@ -1284,7 +1288,7 @@ const AdminDashboard = () => {
                                       onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
                                       onMouseOut={e => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
                                     >
-                                      <Eye size={14} /> Chi tiết
+                                      Chi tiết
                                     </button>
                                     <button
                                       className="btn btn-sm action-btn"
@@ -1294,7 +1298,7 @@ const AdminDashboard = () => {
                                       onMouseOut={e => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#fecaca'; }}
                                       title="Xóa đơn"
                                     >
-                                      <Trash2 size={14} /> Xóa
+                                      Xóa
                                     </button>
                                   </div>
                                 </div>
@@ -1876,64 +1880,63 @@ const AdminDashboard = () => {
       {/* Premium Order Details Modal */}
       {selectedOrder && (
         <div className="admin-modal-overlay animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999 }} onClick={() => setSelectedOrder(null)}>
-          <div className="modal-content" style={{ background: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '450px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ background: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '360px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
-            <div style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', padding: '1.5rem', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', padding: '1rem', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <ShieldCheck size={20} /> Chi tiết đơn hàng
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ShieldCheck size={18} /> Chi tiết đơn hàng
                 </h3>
-                <span style={{ fontSize: '0.9rem', opacity: 0.9, marginTop: '4px', display: 'block' }}>Mã đơn: #{selectedOrder.bookingId || selectedOrder.id}</span>
+                <span style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '2px', display: 'block' }}>Mã đơn: #{selectedOrder.bookingId || selectedOrder.id}</span>
               </div>
               <button onClick={() => setSelectedOrder(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>&times;</button>
             </div>
 
             {/* Modal Body - Receipt Style */}
-            <div style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Khách hàng</span>
-                  <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>{selectedOrder.userEmail || `User #${selectedOrder.user_id}`}</span>
+            <div style={{ padding: '1rem', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Khách hàng</span>
+                  <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right', fontSize: '0.85rem' }}>{selectedOrder.userEmail || `User #${selectedOrder.user_id}`}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Homestay</span>
-                  <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>{selectedOrder.homestayName || selectedOrder.hotel_name || 'N/A'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Homestay</span>
+                  <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right', fontSize: '0.85rem' }}>{selectedOrder.homestayName || selectedOrder.hotel_name || 'N/A'}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Loại phòng</span>
-                  <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right' }}>{selectedOrder.roomName || 'N/A'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Loại phòng</span>
+                  <span style={{ fontWeight: 600, color: '#1e293b', textAlign: 'right', fontSize: '0.85rem' }}>{selectedOrder.roomName || 'N/A'}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Ngày đặt</span>
-                  <span style={{ fontWeight: 500, color: '#334155', textAlign: 'right' }}>{selectedOrder.created_at ? formatLocalDate(selectedOrder.created_at) : 'N/A'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Ngày đặt</span>
+                  <span style={{ fontWeight: 500, color: '#334155', textAlign: 'right', fontSize: '0.85rem' }}>{selectedOrder.created_at ? formatLocalDate(selectedOrder.created_at) : 'N/A'}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Thời gian lưu trú</span>
-                  <div style={{ textAlign: 'right', fontWeight: 500, color: '#334155' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Thời gian lưu trú</span>
+                  <div style={{ textAlign: 'right', fontWeight: 500, color: '#334155', fontSize: '0.85rem' }}>
                     <div>{selectedOrder.check_in_datetime ? formatLocalDateOnly(selectedOrder.check_in_datetime) : 'N/A'}</div>
-                    <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>đến</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>đến</div>
                     <div>{selectedOrder.check_out_datetime ? formatLocalDateOnly(selectedOrder.check_out_datetime) : 'N/A'}</div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px dashed #e2e8f0', alignItems: 'center' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Phương thức</span>
-                  <span style={{ fontWeight: 600, color: '#1e293b', backgroundColor: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', fontSize: '0.9rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Phương thức</span>
+                  <span style={{ fontWeight: 600, color: '#1e293b', backgroundColor: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
                     {selectedOrder.payment_method === 'QR_Transfer' ? 'Chuyển khoản VietQR' : selectedOrder.payment_method || 'N/A'}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', alignItems: 'center' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Trạng thái</span>
-                  <span style={{ fontWeight: 600, color: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'deposited' ? '#16a34a' : (selectedOrder.status === 'cancelled' ? '#dc2626' : '#ea580c'), backgroundColor: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'deposited' ? '#dcfce7' : (selectedOrder.status === 'cancelled' ? '#fee2e2' : '#ffedd5'), padding: '4px 10px', borderRadius: '6px', fontSize: '0.9rem' }}>
-                    {selectedOrder.status === 'completed' ? 'Hoàn tất' :
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: selectedOrder.discount_amount > 0 ? '0.5rem' : '0', borderBottom: selectedOrder.discount_amount > 0 ? '1px dashed #e2e8f0' : 'none', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>Trạng thái</span>
+                  <span style={{ fontWeight: 600, color: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_out' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'deposited' ? '#16a34a' : (selectedOrder.status === 'cancelled' ? '#dc2626' : '#ea580c'), backgroundColor: selectedOrder.status === 'completed' || selectedOrder.status === 'checked_out' || selectedOrder.status === 'checked_in' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'deposited' ? '#dcfce7' : (selectedOrder.status === 'cancelled' ? '#fee2e2' : '#ffedd5'), padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
+                    {selectedOrder.status === 'completed' || selectedOrder.status === 'checked_out' ? 'Hoàn tất' :
                       selectedOrder.status === 'checked_in' ? 'Đang sử dụng' :
-                        selectedOrder.status === 'checked_out' ? 'Đã trả phòng' :
-                          selectedOrder.status === 'cancelled' ? 'Đã hủy' :
+                        selectedOrder.status === 'cancelled' ? 'Đã hủy' :
                             selectedOrder.status === 'refund_pending' ? 'Yêu cầu trả phòng sớm' :
                               selectedOrder.status === 'deposited' ? 'Đã thanh toán cọc' :
                                 selectedOrder.status === 'confirmed' ? 'Đã xác nhận' :
@@ -1941,36 +1944,55 @@ const AdminDashboard = () => {
                                     'Chờ Admin duyệt'}
                   </span>
                 </div>
+
+                {selectedOrder.discount_amount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.8rem' }}>
+                      Giảm giá {selectedOrder.discount_percent > 0 ? `(${selectedOrder.discount_percent}%)` : ''}
+                    </span>
+                    <span style={{ fontWeight: 600, color: '#ef4444', textAlign: 'right', fontSize: '0.9rem' }}>
+                      - {selectedOrder.discount_amount.toLocaleString('vi-VN')}&nbsp;₫
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Total Amount Box */}
-              <div style={{ marginTop: '1.5rem', background: '#f8fafc', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#475569' }}>Tổng thanh toán</span>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0ea5e9' }}>{(selectedOrder.amount || selectedOrder.total_amount || 0).toLocaleString('vi-VN')} ₫</span>
+              <div style={{ marginTop: '1rem', background: '#f8fafc', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>Tổng thanh toán</span>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0ea5e9', whiteSpace: 'nowrap', textAlign: 'right' }}>{(selectedOrder.amount || selectedOrder.total_amount || 0).toLocaleString('vi-VN')}&nbsp;₫</span>
                 </div>
                 {(selectedOrder.deposit_amount !== null && selectedOrder.deposit_amount !== undefined) && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1' }}>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#64748b' }}>Đã cọc (30%)</span>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#059669' }}>{selectedOrder.deposit_amount.toLocaleString('vi-VN')} ₫</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', gap: '5px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>Đã cọc (30%)</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#059669', whiteSpace: 'nowrap', textAlign: 'right' }}>{selectedOrder.deposit_amount.toLocaleString('vi-VN')}&nbsp;₫</span>
                   </div>
                 )}
                 {(selectedOrder.remaining_amount !== null && selectedOrder.remaining_amount !== undefined && selectedOrder.remaining_amount > 0) && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#64748b' }}>Còn lại cần thu</span>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#dc2626' }}>{selectedOrder.remaining_amount.toLocaleString('vi-VN')} ₫</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#64748b', whiteSpace: 'nowrap' }}>Còn lại cần thu</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#dc2626', whiteSpace: 'nowrap', textAlign: 'right' }}>{selectedOrder.remaining_amount.toLocaleString('vi-VN')}&nbsp;₫</span>
+                  </div>
+                )}
+                {(selectedOrder.remaining_amount === 0 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'pending_payment' && selectedOrder.status !== 'awaiting_confirmation') && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '5px', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#16a34a', whiteSpace: 'nowrap' }}>Trạng thái thanh toán</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#16a34a', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle size={14} /> Đã thu đủ
+                    </span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '1rem 1.5rem', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button className="btn btn-outline" style={{ flex: 1, padding: '0.75rem', fontWeight: 600, borderRadius: '8px' }} onClick={() => setSelectedOrder(null)}>Đóng chi tiết</button>
+            <div style={{ padding: '0.75rem 1rem', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button className="btn btn-outline" style={{ flex: 1, padding: '0.5rem', fontWeight: 600, borderRadius: '8px', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={() => setSelectedOrder(null)}>Đóng chi tiết</button>
               {(selectedOrder.status === 'awaiting_confirmation' || selectedOrder.status === 'pending_payment') && (
-                <button 
-                  className="btn btn-primary" 
-                  style={{ flex: 1, padding: '0.75rem', fontWeight: 600, borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '0.5rem', fontWeight: 600, borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
                   onClick={() => {
                     handleVerifyPayment(selectedOrder.bookingId || selectedOrder.id);
                     setSelectedOrder(null);
@@ -1980,11 +2002,11 @@ const AdminDashboard = () => {
                 </button>
               )}
               {((selectedOrder.status === 'deposited' || selectedOrder.status === 'confirmed' || selectedOrder.status === 'checked_in') && selectedOrder.remaining_amount > 0) && (
-                <button 
-                  className="btn btn-success" 
-                  style={{ flex: 1, padding: '0.75rem', fontWeight: 600, borderRadius: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'white' }}
+                <button
+                  className="btn btn-success"
+                  style={{ flex: 1, padding: '0.5rem', fontWeight: 600, borderRadius: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'white', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
                   onClick={() => {
-                    handlePayRemaining(selectedOrder.bookingId || selectedOrder.id);
+                    handlePayRemaining(selectedOrder);
                   }}
                 >
                   <DollarSign size={18} /> Thu tiền còn lại
@@ -2065,7 +2087,7 @@ const AdminDashboard = () => {
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Sức chứa (người) *</label>
                   <input type="number" className="form-control" placeholder="Ví dụ: 2" style={{ width: '100%' }} value={newRoomType.capacity} onChange={e => setNewRoomType({ ...newRoomType, capacity: e.target.value })} />
                 </div>
-                 </div>
+              </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Tiện ích trong phòng (cách nhau bởi dấu phẩy)</label>
                 <input type="text" className="form-control" placeholder="Ví dụ: Điều hòa, Máy sấy, Tivi..." style={{ width: '100%' }} value={newRoomType.room_amenities_text} onChange={e => setNewRoomType({ ...newRoomType, room_amenities_text: e.target.value })} />
@@ -2147,7 +2169,7 @@ const AdminDashboard = () => {
                 <label>Ảnh đại diện (Tải lên)</label>
                 <input type="file" accept="image/*" onChange={(e) => setEditHomestayImageFile(e.target.files[0])} className="form-control" />
                 {editingHomestay.images_text && !editHomestayImageFile && (
-                  <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>Ảnh hiện tại: <a href={editingHomestay.images_text} target="_blank" rel="noreferrer">Xem ảnh</a></small>
+                  <small style={{ display: 'block', marginTop: '5px', color: '#64748b' }}>Ảnh hiện tại: <a href={editingHomestay.images_text} target="_blank" rel="noreferrer">Xem ảnh</a></small>
                 )}
               </div>
               <div className="form-group">
@@ -2199,14 +2221,14 @@ const AdminDashboard = () => {
                 <label>Ảnh loại phòng chính (Tải lên)</label>
                 <input type="file" accept="image/*" onChange={(e) => setEditRoomTypeImageFile(e.target.files[0])} className="form-control" />
                 {editingRoomType.image_url && !editRoomTypeImageFile && (
-                  <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>Ảnh hiện tại: <a href={editingRoomType.image_url} target="_blank" rel="noreferrer">Xem ảnh</a></small>
+                  <small style={{ display: 'block', marginTop: '5px', color: '#64748b' }}>Ảnh hiện tại: <a href={editingRoomType.image_url} target="_blank" rel="noreferrer">Xem ảnh</a></small>
                 )}
               </div>
               <div className="form-group">
                 <label>Ảnh tiện nghi phụ (Tải lên tối đa 3 ảnh)</label>
                 <input type="file" multiple accept="image/*" onChange={(e) => setEditRoomTypeAmenitiesFiles(Array.from(e.target.files).slice(0, 3))} className="form-control" />
                 {editingRoomType.amenities_images_text && editRoomTypeAmenitiesFiles.length === 0 && (
-                  <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>Đã tải lên {parseAmenitiesImagesCount(editingRoomType.amenities_images_text)} ảnh tiện nghi</small>
+                  <small style={{ display: 'block', marginTop: '5px', color: '#64748b' }}>Đã tải lên {parseAmenitiesImagesCount(editingRoomType.amenities_images_text)} ảnh tiện nghi</small>
                 )}
               </div>
               <div className="modal-actions">
@@ -2259,12 +2281,12 @@ const AdminDashboard = () => {
             <div style={{ padding: '10px 0' }}>
               <div className="form-group">
                 <label>Số Căn cước công dân (CCCD) <span style={{ color: 'red' }}>*</span></label>
-                <input 
-                  type="text" 
-                  required 
-                  value={checkInCCCD} 
-                  onChange={(e) => setCheckInCCCD(e.target.value)} 
-                  className="form-control" 
+                <input
+                  type="text"
+                  required
+                  value={checkInCCCD}
+                  onChange={(e) => setCheckInCCCD(e.target.value)}
+                  className="form-control"
                   placeholder="Nhập CCCD của khách hàng"
                   autoFocus
                 />
@@ -2289,7 +2311,7 @@ const AdminDashboard = () => {
             <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div className="form-group">
                 <label>Quyền (Role)</label>
-                <select 
+                <select
                   className="form-control"
                   value={roleModalData.newRole}
                   onChange={(e) => setRoleModalData({ ...roleModalData, newRole: parseInt(e.target.value) })}
@@ -2303,12 +2325,12 @@ const AdminDashboard = () => {
               {roleModalData.newRole === 4 && (
                 <div className="form-group animate-fade-in">
                   <label>ID Khách sạn (Homestay) quản lý <span style={{ color: 'red' }}>*</span></label>
-                  <input 
-                    type="number" 
-                    required 
-                    value={roleModalData.hotelId} 
-                    onChange={(e) => setRoleModalData({ ...roleModalData, hotelId: e.target.value })} 
-                    className="form-control" 
+                  <input
+                    type="number"
+                    required
+                    value={roleModalData.hotelId}
+                    onChange={(e) => setRoleModalData({ ...roleModalData, hotelId: e.target.value })}
+                    className="form-control"
                     placeholder="Nhập ID Khách sạn"
                     autoFocus
                   />

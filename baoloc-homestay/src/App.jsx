@@ -15,10 +15,12 @@ import PaymentGuide from './pages/PaymentGuide';
 import FAQ from './pages/FAQ';
 
 import GlobalBackButton from './components/GlobalBackButton';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <GlobalBackButton />
       <Routes>
         <Route path="/" element={<Home />} />

@@ -207,7 +207,8 @@ const Detail = () => {
     if (guestCount >= 10 && guestCount <= 15) discountRate = 0.10;
     else if (guestCount > 15) discountRate = 0.15;
     
-    const totalAmount = baseAmount * (1 - discountRate);
+    const discountAmount = baseAmount * discountRate;
+    const totalAmount = baseAmount - discountAmount;
 
     const storedUser = sessionStorage.getItem('user');
     const token = sessionStorage.getItem('token');
@@ -226,6 +227,9 @@ const Detail = () => {
             checkIn: checkIn,
             checkOut: checkOut,
             totalAmount: totalAmount,
+            baseAmount: baseAmount,
+            discountPercent: discountRate * 100,
+            discountAmount: discountAmount,
             guestCount: guestCount
         };
 
@@ -242,7 +246,7 @@ const Detail = () => {
               .join(', ');
               
             // Chuyển hướng sang trang thanh toán kèm thông tin
-            navigate(`/checkout/${res.data.bookingId}?amount=${res.data.depositAmount}&total=${totalAmount}&hotel=${hotel.name}&room=${roomNames}&createdAt=${res.data.createdAt || new Date().toISOString()}`);
+            navigate(`/checkout/${res.data.bookingId}?amount=${res.data.depositAmount}&total=${baseAmount}&discountPct=${discountRate * 100}&discountAmt=${discountAmount}&hotel=${hotel.name}&room=${roomNames}&createdAt=${res.data.createdAt || new Date().toISOString()}`);
         }
     } catch (err) {
         const errorMsg = err.response?.data?.error || "Có lỗi xảy ra khi tạo đơn đặt phòng";
@@ -278,7 +282,7 @@ const Detail = () => {
                 {hotel.reviewsList && hotel.reviewsList.length > 0 ? 
                   (hotel.reviewsList.reduce((acc, curr) => acc + curr.rating_score, 0) / hotel.reviewsList.length).toFixed(1) 
                   : '4.5'} 
-                ({hotel.reviewsList ? hotel.reviewsList.length : 124} đánh giá)
+                ({hotel.reviewsList ? hotel.reviewsList.length : 0} đánh giá)
               </span>
               <span className="address"><MapPin size={16} /> {hotel.address}</span>
             </div>

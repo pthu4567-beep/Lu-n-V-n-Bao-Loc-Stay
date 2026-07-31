@@ -93,11 +93,11 @@ const Home = () => {
     const fetchHomestays = async () => {
       try {
         const response = await axios.get('http://localhost:5000/api/homestays');
-        // Render 8 items max
-        setHomestays(response.data.slice(0, 8));
+        // Giữ toàn bộ dữ liệu để làm autocomplete
+        setHomestays(response.data);
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu homestay, sử dụng dữ liệu giả:', err);
-        setHomestays(mockHomestays.slice(0, 8));
+        setHomestays(mockHomestays);
       } finally {
         setLoading(false);
       }
@@ -193,13 +193,14 @@ const Home = () => {
                 autoComplete="off"
               />
               <datalist id="homestay-suggestions">
+                {/* Đề xuất tên Homestay */}
                 {homestays.map(home => (
-                  <option key={home.id} value={home.name}>{home.address}</option>
+                  <option key={`name-${home.id}`} value={home.name}></option>
                 ))}
-                <option value="Phường 1, Bảo Lộc"></option>
-                <option value="Phường 2, Bảo Lộc"></option>
-                <option value="Lộc Phát, Bảo Lộc"></option>
-                <option value="Đam Bri, Bảo Lộc"></option>
+                {/* Đề xuất Địa chỉ duy nhất */}
+                {[...new Set(homestays.map(h => h.address).filter(Boolean))].map((address, idx) => (
+                  <option key={`addr-${idx}`} value={address}></option>
+                ))}
               </datalist>
             </div>
 
@@ -207,14 +208,24 @@ const Home = () => {
 
             <div className="search-item flex-1">
               <label>Ngày Check-in</label>
-              <input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} />
+              <input 
+                type="date" 
+                value={checkIn} 
+                onChange={e => setCheckIn(e.target.value)} 
+                min={new Date().toISOString().split('T')[0]}
+              />
             </div>
 
             <div className="search-divider"></div>
 
             <div className="search-item flex-1">
               <label>Ngày Check-out</label>
-              <input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} />
+              <input 
+                type="date" 
+                value={checkOut} 
+                onChange={e => setCheckOut(e.target.value)} 
+                min={checkIn || new Date().toISOString().split('T')[0]}
+              />
             </div>
 
             <div className="search-divider"></div>
@@ -336,7 +347,7 @@ const Home = () => {
           <div className="loading-state">Đang tải dữ liệu...</div>
         ) : (
           <div className="homestay-grid">
-            {homestays.map(home => (
+            {homestays.slice(0, 8).map(home => (
               <div className="homestay-card" key={home.id} onClick={() => navigate(`/homestay/${home.id}`)}>
                 <div className="card-img-wrapper">
                   <img src={home.img} alt={home.name} />
@@ -349,7 +360,7 @@ const Home = () => {
                   <div className="rating-row">
                     <Star size={16} fill="#f59e0b" color="#f59e0b" />
                     <span className="rating-score">{home.rating}</span>
-                    <span className="review-count">(128 đánh giá)</span>
+                    <span className="review-count">({home.review_count || 0} đánh giá)</span>
                   </div>
                   <p className="card-address"><MapPin size={14} /> {home.address}</p>
                   <p className="card-desc">{home.description || 'Homestay xinh đẹp với không gian thoáng đãng, view đồi trà xanh mướt, gần trung tâm thành phố Bảo Lộc.'}</p>

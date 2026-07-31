@@ -17,6 +17,8 @@ exports.getBookings = async (req, res) => {
                 b.deposit_amount,
                 b.remaining_amount,
                 b.refund_amount,
+                b.discount_percent,
+                b.discount_amount,
                 CASE 
                     WHEN b.booking_status = 'refund_pending' THEN 'refund_pending'
                     WHEN p.payment_status = 'paid' AND b.booking_status != 'refund_pending' AND b.booking_status != 'completed' AND b.booking_status != 'checked_in' AND b.booking_status != 'checked_out' THEN 'confirmed' 
@@ -429,20 +431,21 @@ exports.approveRefund = async (req, res) => {
              return res.status(400).json({ success: false, message: 'Đơn hàng không ở trạng thái chờ hoàn tiền' });
         }
 
-        const roomId = booking.room_id;
-
         const updateReq = pool.request();
         updateReq.input('bookingId', sql.Int, bookingId);
-        updateReq.input('roomId', sql.Int, roomId);
 
         await updateReq.query(`
             UPDATE bookings SET booking_status = 'completed' WHERE id = @bookingId;
         `);
 
-        if (roomId) {
-            await updateReq.query(`
-                UPDATE rooms SET status = 'available' WHERE id = @roomId;
-            `);
+        for (let r of bookingRes.recordset) {
+            if (r.room_id) {
+                await pool.request()
+                    .input('roomId', sql.Int, r.room_id)
+                    .query(`
+                        UPDATE rooms SET status = 'available' WHERE id = @roomId;
+                    `);
+            }
         }
 
         res.json({ success: true, message: 'Đã duyệt hoàn tiền và giải phóng phòng thành công' });
@@ -488,13 +491,14 @@ exports.checkInBooking = async (req, res) => {
             .input('bId', sql.Int, bookingId)
             .query("SELECT room_id FROM booking_details WHERE booking_id = @bId");
             
-        if (roomRes.recordset.length > 0 && roomRes.recordset[0].room_id) {
-            const roomId = roomRes.recordset[0].room_id;
-            await pool.request()
-                .input('roomId', sql.Int, roomId)
-                .query("UPDATE rooms SET status = 'occupied' WHERE id = @roomId");
+        for (let r of roomRes.recordset) {
+            if (r.room_id) {
+                await pool.request()
+                    .input('roomId', sql.Int, r.room_id)
+                    .query("UPDATE rooms SET status = 'occupied' WHERE id = @roomId");
+            }
         }
-
+        
         res.json({ success: true, message: 'Khách đã nhận phòng thành công!' });
     } catch (err) {
         console.error('Lỗi khi check-in:', err);

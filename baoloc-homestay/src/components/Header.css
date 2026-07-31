@@ -214,3 +214,16 @@
     display: none;
   }
 }
+
+.notif-menu {
+  width: 320px;
+  right: -10px;
+  top: 150%;
+}
+
+@media (max-width: 640px) {
+  .notif-menu {
+    max-width: 90vw;
+    right: -80px;
+  }
+}

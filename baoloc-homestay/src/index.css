@@ -107,6 +107,27 @@ ul {
   background-color: var(--primary-50);
 }
 
+.btn-danger {
+  background-color: transparent;
+  color: var(--status-danger);
+  border: 1px solid var(--status-danger);
+}
+
+.btn-danger:hover {
+  background-color: #fef2f2;
+}
+
+.btn-danger-solid {
+  background-color: var(--status-danger);
+  color: white;
+}
+
+.btn-danger-solid:hover {
+  background-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
 .glass-panel {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
