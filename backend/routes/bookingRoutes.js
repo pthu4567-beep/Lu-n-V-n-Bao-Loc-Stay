@@ -9,6 +9,9 @@ router.get('/:id', verifyToken, orderController.getBookingById);
 // Route người dùng báo đã thanh toán
 router.post('/:id/notify-paid', verifyToken, orderController.notifyPaid);
 
+// Hủy đơn đặt phòng khi đang chờ thanh toán
+router.post('/:id/cancel-pending', verifyToken, orderController.cancelPendingBooking);
+
 // Đánh giá đơn đặt phòng (Cho khách hàng)
 router.post('/:id/reviews', verifyToken, orderController.submitReview);
 

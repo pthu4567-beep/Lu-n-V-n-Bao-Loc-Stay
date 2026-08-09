@@ -118,10 +118,10 @@ const sendBookingConfirmation = async (bookingData, customerEmail) => {
 const sendOTPEmail = async (email, otp, type) => {
     try {
         const title = type === 'forgot' ? 'KHÔI PHỤC MẬT KHẨU' : 'XÁC NHẬN ĐỔI MẬT KHẨU';
-        const message = type === 'forgot' 
-            ? 'Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản liên kết với email này.' 
+        const message = type === 'forgot'
+            ? 'Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản liên kết với email này.'
             : 'Bạn vừa yêu cầu đổi mật khẩu cho tài khoản của mình.';
-            
+
         const htmlTemplate = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
             <div style="text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px;">
@@ -161,4 +161,52 @@ const sendOTPEmail = async (email, otp, type) => {
     }
 };
 
-module.exports = { sendBookingConfirmation, sendOTPEmail };
+const sendPaymentWarningEmail = async (bookingData, customerEmail) => {
+    try {
+        const { bookingId, customerName, totalAmount } = bookingData;
+
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        };
+
+        const htmlTemplate = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+            <div style="text-align: center; border-bottom: 2px solid #ef4444; padding-bottom: 15px; margin-bottom: 20px;">
+                <h2 style="color: #dc2626; margin: 0;">CẢNH BÁO: CHƯA NHẬN ĐƯỢC THANH TOÁN</h2>
+            </div>
+            
+            <p style="color: #374151; font-size: 16px;">Xin chào <strong>${customerName || customerEmail}</strong>,</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.5;">Hệ thống ghi nhận bạn đã gửi yêu cầu "Đã thanh toán" cho đơn đặt phòng <strong>#${bookingId}</strong> với số tiền cần thanh toán là <strong>${formatCurrency(totalAmount)}</strong>.</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.5; font-weight: bold; color: #b91c1c;">Tuy nhiên, hiện tại chúng tôi vẫn chưa nhận được khoản tiền này trong tài khoản ngân hàng của homestay.</p>
+            
+            <div style="background-color: #fef2f2; padding: 15px; border-radius: 6px; border: 1px dashed #f87171; font-size: 15px; color: #991b1b; margin-top: 20px; margin-bottom: 20px;">
+                <p style="margin: 0 0 10px 0;"><strong>YÊU CẦU:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Nếu bạn chưa thực sự chuyển khoản, vui lòng hoàn tất việc chuyển khoản trong vòng <strong>10-15 phút tới</strong>. Nếu quá thời gian, đơn đặt phòng của bạn sẽ bị hủy tự động để nhường chỗ cho khách hàng khác.</li>
+                    <li>Nếu bạn <strong>đã chuyển khoản thành công</strong> và tài khoản của bạn đã bị trừ tiền, vui lòng <strong>Reply (Trả lời) lại email này</strong> kèm theo hình ảnh chụp màn hình biên lai giao dịch thành công để bộ phận Admin của chúng tôi tiến hành đối soát.</li>
+                </ul>
+            </div>
+            
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; font-size: 14px; color: #4b5563; text-align: center;">
+                <p style="margin: 0;">Nếu bạn có bất kỳ thắc mắc nào, vui lòng liên hệ bộ phận hỗ trợ khách hàng của chúng tôi.</p>
+                <p style="margin: 5px 0 0 0;">Cảm ơn bạn đã hợp tác!</p>
+            </div>
+        </div>
+        `;
+
+        const mailOptions = {
+            from: `"Bảo Lộc Stay" <${process.env.EMAIL_USER}>`,
+            to: customerEmail,
+            subject: `[Cảnh báo] Yêu cầu xác nhận thanh toán đơn đặt phòng #${bookingId}`,
+            html: htmlTemplate
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[Email Sent] Email cảnh báo đơn hàng #${bookingId} đã được gửi tới ${customerEmail}. MessageId: ${info.messageId}`);
+    } catch (error) {
+        console.error(`[Email Error] Lỗi khi gửi email cảnh báo cho đơn hàng #${bookingData?.bookingId}:`, error);
+        throw error;
+    }
+};
+
+module.exports = { sendBookingConfirmation, sendOTPEmail, sendPaymentWarningEmail };

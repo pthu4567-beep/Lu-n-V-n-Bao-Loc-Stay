@@ -74,7 +74,7 @@ exports.verifyPayment = async (req, res) => {
         bookingReq.input('bookingId', sql.Int, bookingId);
         const bookingRes = await bookingReq.query(`SELECT remaining_amount FROM bookings WHERE id = @bookingId`);
         const b = bookingRes.recordset[0];
-        
+
         let newBookingStatus = 'confirmed';
         let newPaymentStatus = 'paid';
 
@@ -160,7 +160,7 @@ exports.updateBookingStatus = async (req, res) => {
             const getRoomReq = pool.request();
             getRoomReq.input('bId', sql.Int, bookingId);
             const roomRes = await getRoomReq.query(`SELECT room_id FROM booking_details WHERE booking_id = @bId`);
-            
+
             if (roomRes.recordset.length > 0) {
                 for (let i = 0; i < roomRes.recordset.length; i++) {
                     const rId = roomRes.recordset[i].room_id;
@@ -252,7 +252,7 @@ exports.notifyPaid = async (req, res) => {
         // Thực hiện 2 lệnh UPDATE
         const updateReq = pool.request();
         updateReq.input('bookingId', sql.Int, bookingId);
-        
+
         await updateReq.query(`
             UPDATE payments 
             SET payment_status = 'awaiting_confirmation' 
@@ -266,6 +266,43 @@ exports.notifyPaid = async (req, res) => {
         res.json({ success: true, message: 'Đã thông báo thanh toán thành công!' });
     } catch (err) {
         console.error('Lỗi trong notifyPaid:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
+exports.cancelPendingBooking = async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const userId = req.user.id;
+        const pool = await poolPromise;
+
+        const checkReq = pool.request();
+        checkReq.input('bookingId', sql.Int, bookingId);
+        const checkRes = await checkReq.query(`SELECT user_id, booking_status FROM bookings WHERE id = @bookingId`);
+
+        if (checkRes.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng!' });
+        }
+
+        const booking = checkRes.recordset[0];
+        if (String(booking.user_id) !== String(userId)) {
+            return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
+        }
+
+        if (booking.booking_status !== 'pending_payment') {
+            return res.status(400).json({ success: false, message: 'Chỉ có thể hủy đơn đang chờ thanh toán!' });
+        }
+
+        const cancelReq = pool.request();
+        cancelReq.input('bookingId', sql.Int, bookingId);
+        await cancelReq.query(`
+            UPDATE bookings SET booking_status = 'cancelled' WHERE id = @bookingId;
+            UPDATE payments SET payment_status = 'cancelled' WHERE booking_id = @bookingId;
+        `);
+
+        res.json({ success: true, message: 'Đã hủy đơn đặt phòng thành công!' });
+    } catch (err) {
+        console.error('Lỗi trong cancelPendingBooking:', err);
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }
 };
@@ -350,7 +387,7 @@ exports.earlyCheckout = async (req, res) => {
         }
 
         const booking = bookingRes.recordset[0];
-        
+
         // Cập nhật: Cho phép admin/owner thao tác, nếu không phải admin/owner thì check user_id
         if (req.user.roleId === 3 && String(booking.user_id) !== String(userId)) {
             return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác trên đơn hàng này' });
@@ -364,18 +401,18 @@ exports.earlyCheckout = async (req, res) => {
         const checkIn = new Date(booking.check_in_datetime);
 
         if (newCheckout >= oldCheckout) {
-             return res.status(400).json({ success: false, message: 'Thời gian trả phòng mới phải sớm hơn thời gian trả phòng cũ' });
+            return res.status(400).json({ success: false, message: 'Thời gian trả phòng mới phải sớm hơn thời gian trả phòng cũ' });
         }
 
         // Tính toán số đêm ban đầu
         const msPerDay = 1000 * 60 * 60 * 24;
         const totalNights = Math.round((oldCheckout - checkIn) / msPerDay);
-        
+
         // Tính số đêm chưa sử dụng
         const unusedNights = Math.round((oldCheckout - newCheckout) / msPerDay);
 
         const pricePerNight = totalNights > 0 ? booking.total_amount / totalNights : 0;
-        
+
         // Số giờ báo trước
         const noticeHours = (newCheckout - now) / (1000 * 60 * 60);
 
@@ -414,7 +451,7 @@ exports.approveRefund = async (req, res) => {
 
         const checkReq = pool.request();
         checkReq.input('bookingId', sql.Int, bookingId);
-        
+
         const bookingRes = await checkReq.query(`
             SELECT b.booking_status, bd.room_id 
             FROM bookings b
@@ -428,7 +465,7 @@ exports.approveRefund = async (req, res) => {
 
         const booking = bookingRes.recordset[0];
         if (booking.booking_status !== 'refund_pending') {
-             return res.status(400).json({ success: false, message: 'Đơn hàng không ở trạng thái chờ hoàn tiền' });
+            return res.status(400).json({ success: false, message: 'Đơn hàng không ở trạng thái chờ hoàn tiền' });
         }
 
         const updateReq = pool.request();
@@ -464,11 +501,11 @@ exports.checkInBooking = async (req, res) => {
         const request = pool.request();
         request.input('bId', sql.Int, bookingId);
         const checkRes = await request.query("SELECT booking_status FROM bookings WHERE id = @bId");
-        
+
         if (checkRes.recordset.length === 0) {
             return res.status(404).json({ error: 'Không tìm thấy đơn đặt phòng!' });
         }
-        
+
         const { cccd } = req.body; // Lấy CCCD từ request body
 
         if (checkRes.recordset[0].booking_status !== 'confirmed') {
@@ -490,7 +527,7 @@ exports.checkInBooking = async (req, res) => {
         const roomRes = await pool.request()
             .input('bId', sql.Int, bookingId)
             .query("SELECT room_id FROM booking_details WHERE booking_id = @bId");
-            
+
         for (let r of roomRes.recordset) {
             if (r.room_id) {
                 await pool.request()
@@ -498,7 +535,7 @@ exports.checkInBooking = async (req, res) => {
                     .query("UPDATE rooms SET status = 'occupied' WHERE id = @roomId");
             }
         }
-        
+
         res.json({ success: true, message: 'Khách đã nhận phòng thành công!' });
     } catch (err) {
         console.error('Lỗi khi check-in:', err);
@@ -514,7 +551,7 @@ exports.deleteBooking = async (req, res) => {
 
         // Chỉ admin (roleId 1) và owner (roleId 2) mới được xóa
         if (roleId !== 1 && roleId !== 2) {
-             return res.status(403).json({ success: false, message: 'Bạn không có quyền thực hiện hành động này' });
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền thực hiện hành động này' });
         }
 
         // Kiểm tra xem đơn hàng có tồn tại không và nếu là owner thì có thuộc khách sạn của mình không
@@ -529,14 +566,14 @@ exports.deleteBooking = async (req, res) => {
         checkReq.input('bookingId', sql.Int, bookingId);
 
         if (roleId === 2) {
-             checkQuery += ` AND h.owner_id = @ownerId`;
-             checkReq.input('ownerId', sql.Int, req.user.id);
+            checkQuery += ` AND h.owner_id = @ownerId`;
+            checkReq.input('ownerId', sql.Int, req.user.id);
         }
 
         const checkRes = await checkReq.query(checkQuery);
-        
+
         if (checkRes.recordset.length === 0) {
-             return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền xóa' });
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền xóa' });
         }
 
         const deleteReq = pool.request();
@@ -571,7 +608,7 @@ exports.payRemaining = async (req, res) => {
     try {
         const bookingId = parseInt(req.params.id);
         const pool = await poolPromise;
-        
+
         // Admin or staff check could be done via middleware
         const request = pool.request();
         request.input('bookingId', sql.Int, bookingId);
@@ -610,5 +647,50 @@ exports.payRemaining = async (req, res) => {
     } catch (err) {
         console.error('Lỗi khi thu tiền:', err);
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
+exports.sendPaymentWarning = async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const pool = await poolPromise;
+
+        const request = pool.request();
+        request.input('bookingId', sql.Int, bookingId);
+
+        const bookingRes = await request.query(`
+            SELECT b.id, b.total_amount, b.booking_status, u.full_name, u.email 
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
+            WHERE b.id = @bookingId
+        `);
+
+        if (bookingRes.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+        }
+
+        const booking = bookingRes.recordset[0];
+
+        if (['cancelled', 'completed', 'checked_out'].includes(booking.booking_status)) {
+            return res.status(400).json({ success: false, message: 'Không thể gửi cảnh báo cho đơn đã hoàn tất hoặc đã hủy' });
+        }
+
+        if (!booking.email) {
+            return res.status(400).json({ success: false, message: 'Khách hàng không có địa chỉ email' });
+        }
+
+        const bookingData = {
+            bookingId: booking.id,
+            customerName: booking.full_name,
+            totalAmount: booking.total_amount
+        };
+
+        const { sendPaymentWarningEmail } = require('../utils/sendEmail');
+        await sendPaymentWarningEmail(bookingData, booking.email);
+
+        res.json({ success: true, message: 'Đã gửi email cảnh báo thành công!' });
+    } catch (err) {
+        console.error('Lỗi gửi email cảnh báo:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server khi gửi email', error: err.message });
     }
 };

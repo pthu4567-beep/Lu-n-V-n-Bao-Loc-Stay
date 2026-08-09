@@ -26,13 +26,13 @@ const upload = multer({ storage });
 
 // --- HOTELS ---
 router.get('/hotels', catalogController.getHotels);
-router.post('/hotels', catalogController.createHotel);
+router.post('/hotels', upload.single('image'), catalogController.createHotel);
 router.put('/hotels/:id', upload.single('image'), catalogController.updateHotel);
 router.delete('/hotels/:id', catalogController.deleteHotel);
 
 // --- ROOM TYPES ---
 router.get('/room-types', catalogController.getRoomTypes);
-router.post('/room-types', catalogController.createRoomType);
+router.post('/room-types', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'amenity_images', maxCount: 3 }]), catalogController.createRoomType);
 router.put('/room-types/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'amenity_images', maxCount: 3 }]), catalogController.updateRoomType);
 router.delete('/room-types/:id', catalogController.deleteRoomType);
 

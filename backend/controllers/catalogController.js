@@ -40,7 +40,12 @@ exports.createHotel = async (req, res) => {
         request.input('facilities_text', sql.NVarChar, facilities_text || '');
         request.input('address', sql.NVarChar, address || '');
         request.input('status', sql.VarChar, status || 'active');
-        request.input('images_text', sql.NVarChar, images_text || '');
+        
+        let images_text_final = images_text || '';
+        if (req.file) {
+            images_text_final = `http://localhost:5000/uploads/hotels/${req.file.filename}`;
+        }
+        request.input('images_text', sql.NVarChar, images_text_final);
 
         const query = `
             INSERT INTO hotels (owner_id, name, description, facilities_text, address, status, images_text)
@@ -200,7 +205,13 @@ exports.createRoomType = async (req, res) => {
         request.input('room_amenities_text', sql.NVarChar, room_amenities_text || '');
         request.input('base_price', sql.Decimal(18, 2), base_price);
         request.input('capacity', sql.Int, capacity);
-        request.input('image_url', sql.VarChar, image_url || '');
+        
+        let image_url_final = image_url || '';
+        if (req.files && req.files['image'] && req.files['image'][0]) {
+            image_url_final = `http://localhost:5000/uploads/hotels/${req.files['image'][0].filename}`;
+        }
+        request.input('image_url', sql.VarChar, image_url_final);
+        
         request.input('note', sql.NVarChar, note || '');
 
         const query = `
