@@ -85,9 +85,6 @@ const Promotions = () => {
               
               return (
                 <div className="deal-card" key={promo.id} style={{ '--deal-color': c, '--deal-bg': bg }}>
-                  <div className="deal-icon-wrap" style={{ background: bg, color: c }}>
-                    {getIcon(promo.discount_percent)}
-                  </div>
                   <div className="deal-discount">Giảm {promo.discount_percent}%</div>
                   <h3>{promo.hotel_id ? `Dành cho: ${promo.hotel_name}` : 'Áp dụng Toàn Hệ Thống'}</h3>
                   <p>Nhập mã <strong>{promo.discount_code}</strong> để được giảm ngay {promo.discount_percent}%.</p>

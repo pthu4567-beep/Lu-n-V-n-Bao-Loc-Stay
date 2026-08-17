@@ -23,6 +23,11 @@ exports.updateUserRole = async (req, res) => {
         const pool = await poolPromise;
         
         const request = pool.request();
+        
+        if (userId === req.user.id) {
+            return res.status(400).json({ success: false, message: 'Bạn không thể tự thay đổi quyền của chính mình!' });
+        }
+
         request.input('id', sql.Int, userId);
         request.input('role_id', sql.Int, role_id);
 
@@ -49,6 +54,11 @@ exports.blockUser = async (req, res) => {
         const pool = await poolPromise;
         
         const request = pool.request();
+
+        if (userId === req.user.id) {
+            return res.status(400).json({ success: false, message: 'Bạn không thể tự khóa/mở khóa tài khoản của chính mình!' });
+        }
+
         request.input('id', sql.Int, userId);
         request.input('is_blocked', sql.Bit, is_blocked ? 1 : 0);
 
@@ -65,6 +75,11 @@ exports.deleteUser = async (req, res) => {
         const pool = await poolPromise;
         
         const request = pool.request();
+
+        if (userId === req.user.id) {
+            return res.status(400).json({ success: false, message: 'Bạn không thể tự xóa tài khoản của chính mình!' });
+        }
+
         request.input('id', sql.Int, userId);
 
         await request.query('DELETE FROM users WHERE id = @id');

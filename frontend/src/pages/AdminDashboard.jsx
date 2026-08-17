@@ -1426,11 +1426,15 @@ const AdminDashboard = () => {
                               </span>
                             </td>
                             <td>
-                              <button className="btn btn-outline btn-sm action-btn" onClick={() => handleUpdateRole(u.id, u.role_id)}>Đổi Quyền</button>
-                              <button className={`btn btn-sm action-btn ${u.is_blocked ? 'btn-primary' : 'btn-outline'}`} style={{ marginLeft: '4px' }} onClick={() => handleBlockUser(u.id, u.is_blocked)}>
-                                {u.is_blocked ? 'Mở khóa' : 'Khóa'}
-                              </button>
-                              <button className="btn btn-danger btn-sm action-btn" style={{ marginLeft: '4px' }} onClick={() => handleDeleteUser(u.id)}>Xóa</button>
+                              {u.id !== user?.id ? (
+                                <>
+                                  <button className={`btn btn-sm action-btn ${u.is_blocked ? 'btn-primary' : 'btn-outline'}`} onClick={() => handleBlockUser(u.id, u.is_blocked)}>
+                                    {u.is_blocked ? 'Mở khóa' : 'Khóa'}
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-muted" style={{ fontSize: '0.85rem', fontStyle: 'italic', display: 'inline-block', padding: '4px 0' }}>Tài khoản của bạn</span>
+                              )}
                             </td>
                           </tr>
                         ))}

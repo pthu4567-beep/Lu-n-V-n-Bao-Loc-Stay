@@ -318,9 +318,6 @@ const Home = () => {
           <div className="deals-grid">
             {seasonalDeals.map(deal => (
               <div className="deal-card" key={deal.id} style={{ '--deal-color': deal.color, '--deal-bg': deal.bgColor }}>
-                <div className="deal-icon-wrap" style={{ background: deal.bgColor, color: deal.color }}>
-                  {deal.icon}
-                </div>
                 <div className="deal-discount">{deal.discount}</div>
                 <h3>{deal.title}</h3>
                 <p>{deal.description}</p>

@@ -437,11 +437,11 @@ const Detail = () => {
             <div className="widget-form">
               <div className="form-group">
                 <label>Ngày Nhận phòng</label>
-                <input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} />
+                <input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} />
               </div>
               <div className="form-group">
                 <label>Ngày Trả phòng</label>
-                <input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} />
+                <input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} min={checkIn || new Date().toISOString().split('T')[0]} />
               </div>
               <div className="form-group">
                 <label>Số lượng khách {totalCapacity > 0 ? `(Tối đa: ${totalCapacity})` : ''}</label>
